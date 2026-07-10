@@ -1,0 +1,43 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Redirecionar http para https
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  
+  # Remover www
+  RewriteCond %{HTTP_HOST} ^www\. [NC]
+  RewriteRule ^(.*)$ https://%{HTTP_HOST:www.}%{REQUEST_URI} [L,R=301]
+  
+  # SPA routing - redirecionar URLs não encontradas para index.html
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [QSA,L]
+  
+  # Cache headers para assets
+  <FilesMatch "\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  
+  # Cache headers para HTML
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=3600, must-revalidate"
+  </FilesMatch>
+  
+  # Security headers
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_gzip.c>
+  mod_gzip_on Yes
+  mod_gzip_dechunk Yes
+  mod_gzip_item_include file \.(html?|txt|css|js|json|xml|svg)$
+  mod_gzip_item_include handler ^cgi-script$
+  mod_gzip_item_exclude mime ^image/
+  mod_gzip_item_exclude rn ^Content-Encoding:\s*gzip
+  mod_gzip_minimum_file_size 1000
+</IfModule>

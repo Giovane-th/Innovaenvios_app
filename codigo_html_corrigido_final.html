@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InnovaEnvios - Envie encomendas com contrato dos Correios</title>
+    <meta name="description" content="Cote frete dos Correios em 30 segundos. Pague online via Pagar.me. Rastreie em tempo real. Sem contrato corporativo, sem burocracia.">
+    <meta name="keywords" content="frete, correios, envio encomenda, cotação, PAC, SEDEX, pagar.me">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="InnovaEnvios - Envie encomendas com contrato dos Correios">
+    <meta property="og:description" content="Cote frete dos Correios em 30 segundos. Pague com segurança. Rastreie tudo em tempo real.">
+    <meta property="og:image" content="https://innovaenvios.app/logocapa.png">
+    <meta property="og:url" content="https://innovaenvios.app">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="InnovaEnvios - Envie encomendas com contrato dos Correios">
+    <meta name="twitter:description" content="Cote em 30 segundos. Pague online. Rastreie em tempo real.">
+    <meta name="twitter:image" content="https://innovaenvios.app/logocapa.png">
+    
+    <!-- Canonical & Favicon -->
+    <link rel="canonical" href="https://innovaenvios.app/">
+    <link rel="icon" href="https://innovaenvios.app/favicon.png" type="image/png">
+    
+    <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=daGyrYQAduCoHPhlZUE4wqDQpOz4efnzGqt-DsKi0M6ehi_WjVEPOZyRWxDcV-1ta1Id6GqC3VDU1Ei3CBleSnvTojRvNUhLqF_TSa8jFadsgLWtM4y-lNTTr3mR5d2mo4HOHKcw_KzBuHHPGqVfuwhmosgJy0o3xQl1lm9axJY" charset="UTF-8"></script><style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* HERO COM CAPA */
+        .hero {
+            background-image: url('https://innovaenvios.app/logocapa.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: white;
+            padding: 120px 20px;
+            text-align: left;
+            position: relative;
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 82, 163, 0.7);
+            z-index: 1;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 600px;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+        
+        .hero h1 .highlight {
+            color: #F7931E;
+        }
+        
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.95;
+        }
+        
+        .quote-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .quote-form input {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background-color: #FF6B35;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #E55A24;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+        }
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .hero-cta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        /* BENEFICIOS */
+        .benefits {
+            padding: 80px 20px;
+            background: #f8f9fa;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 50px;
+            color: #0052A3;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-top: 50px;
+        }
+        
+        .benefit-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .benefit-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .benefit-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .benefit-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #FF6B35;
+        }
+        
+        /* COMO FUNCIONA */
+        .how-it-works {
+            padding: 80px 20px;
+            background: white;
+        }
+        
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #FF6B35;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 45px;
+            height: 45px;
+            background: #FF6B35;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 45px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+        
+        .step h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .step p {
+            color: #666;
+        }
+        
+        /* TABELA COMPARATIVA */
+        .comparison {
+            padding: 80px 20px;
+            background: #f8f9fa;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-table th {
+            background: #0052A3;
+            color: white;
+            padding: 20px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .comparison-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .check {
+            color: #28a745;
+            font-weight: 700;
+        }
+        
+        .cross {
+            color: #dc3545;
+        }
+        
+        .partial {
+            color: #ffc107;
+        }
+        
+        /* DEPOIMENTOS */
+        .testimonials {
+            padding: 80px 20px;
+            background: white;
+        }
+        
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .testimonial-card {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #0066CC;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .testimonial-text {
+            font-style: italic;
+            margin-bottom: 15px;
+            color: #555;
+            line-height: 1.8;
+        }
+        
+        .testimonial-author {
+            font-weight: 600;
+            color: #FF6B35;
+        }
+        
+        .testimonial-role {
+            font-size: 0.9rem;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* CONFIANÇA */
+        .trust {
+            padding: 40px 20px;
+            background: white;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px solid #0052A3;
+        }
+        
+        .trust-items {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .trust-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        /* FAQ */
+        .faq {
+            padding: 80px 20px;
+            background: white;
+        }
+        
+        .faq-item {
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .faq-question {
+            padding: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        
+        .faq-question:hover {
+            background: #e9ecef;
+        }
+        
+        .faq-icon {
+            font-size: 1.5rem;
+        }
+        
+        .faq-answer {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+        
+        .faq-item.active .faq-answer {
+            padding: 0 20px 20px 20px;
+            max-height: 500px;
+        }
+        
+        .faq-item.active .faq-question {
+            background: #0052A3;
+            color: white;
+        }
+        
+        /* FINAL CTA */
+        .final-cta {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #0052A3 0%, #0066CC 100%);
+            color: white;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 50px;
+        }
+        
+        .final-cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .final-cta p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+        
+        /* RESPONSIVO */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .hero p {
+                font-size: 1rem;
+            }
+            
+            .quote-form {
+                flex-direction: column;
+            }
+            
+            .quote-form input {
+                min-width: 100%;
+            }
+            
+            .comparison-table {
+                font-size: 0.9rem;
+            }
+            
+            .comparison-table th,
+            .comparison-table td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HERO SECTION COM CAPA -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <h1>O jeito inteligente <span class="highlight">de enviar</span></h1>
+            <p>Cote frete dos Correios em 30 segundos. Pague online. Rastreie em tempo real. Tudo em um só lugar.</p>
+            
+            <div class="quote-form">
+                <input type="text" placeholder="CEP origem" required>
+                <input type="text" placeholder="CEP destino" required>
+                <input type="text" placeholder="Peso (kg)" required>
+                <button class="btn btn-primary">SIMULAR</button>
+            </div>
+            
+            <div class="hero-cta">
+                <a href="/checkout" class="btn btn-primary">CALCULAR FRETE GRÁTIS AGORA</a>
+                <a href="/my-account/?action=register" class="btn btn-secondary">CRIAR CONTA GRÁTIS</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- BENEFÍCIOS -->
+<section class="benefits">
+    <div class="container">
+        <h2 class="section-title">Por que escolher InnovaEnvios?</h2>
+        
+        <div class="benefits-grid">
+            <div class="benefit-card">
+                <div class="benefit-icon">💰</div>
+                <h3>Preço de Contrato</h3>
+                <p>Acesso às tarifas negociadas dos Correios. Sem ter contrato corporativo. Economize até 40% vs balcão.</p>
+            </div>
+            
+            <div class="benefit-card">
+                <div class="benefit-icon">⚡</div>
+                <h3>Cotação Instantânea</h3>
+                <p>Digite os dados e veja PAC, SEDEX e outras opções com preço e prazo em segundos. Sem esperar fila.</p>
+            </div>
+            
+            <div class="benefit-card">
+                <div class="benefit-icon">💳</div>
+                <h3>Pagamento 100% Online</h3>
+                <p>Cartão de crédito, Pix ou boleto. Seguro via Pagar.me. Sem mensalidade - pague apenas o que enviar.</p>
+            </div>
+            
+            <div class="benefit-card">
+                <div class="benefit-icon">📍</div>
+                <h3>Rastreamento Integrado</h3>
+                <p>Acompanhe cada envio em tempo real. Seus clientes recebem atualizações automáticas por e-mail.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="how-it-works">
+    <div class="container">
+        <h2 class="section-title">Como Funciona?</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 40px;">Processo simples em 6 passos</p>
+        
+        <div class="steps-grid">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Simule seu envio</h3>
+                <p>Digite CEP de origem, destino, peso e dimensões. Veja todas as opções disponíveis em segundos.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Compare preços</h3>
+                <p>PAC, SEDEX, SEDEX 10, SEDEX 12 - escolha o melhor custo x benefício pro seu cliente.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Selecione o serviço</h3>
+                <p>Escolha o frete que preferir. Adicione seguro se quiser (proteção total da mercadoria).</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Pague com segurança</h3>
+                <p>Checkout rápido via Pagar.me. Cartão, Pix ou boleto. Tudo criptografado, sem risco.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">5</div>
+                <h3>Imprima sua etiqueta</h3>
+                <p>Etiqueta gerada na hora em PDF. Cole na caixa e está pronto pra ir aos Correios.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">6</div>
+                <h3>Acompanhe online</h3>
+                <p>Código de rastreio enviado automaticamente. Você e seu cliente rastreiam juntos até a entrega.</p>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 50px;">
+            <a href="/checkout" class="btn btn-primary">QUERO ENVIAR AGORA</a>
+        </div>
+    </div>
+</section>
+
+<!-- TABELA COMPARATIVA -->
+<section class="comparison">
+    <div class="container">
+        <h2 class="section-title">Por que escolher InnovaEnvios vs. alternativas?</h2>
+        
+        <div style="overflow-x: auto;">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Funcionalidade</th>
+                        <th>InnovaEnvios</th>
+                        <th>Balcão Correios</th>
+                        <th>Outros Agregadores</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Preço de contrato</strong></td>
+                        <td><span class="check">✅ Sim</span></td>
+                        <td><span class="cross">❌ Tarifa cheia</span></td>
+                        <td><span class="partial">⚠️ Nem sempre</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cotação 24h</strong></td>
+                        <td><span class="check">✅ Online</span></td>
+                        <td><span class="cross">❌ Presencial</span></td>
+                        <td><span class="check">✅ Sim</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Pagamento digital</strong></td>
+                        <td><span class="check">✅ Sim</span></td>
+                        <td><span class="cross">❌ Dinheiro</span></td>
+                        <td><span class="check">✅ Sim</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rastreamento centralizado</strong></td>
+                        <td><span class="check">✅ Painel próprio</span></td>
+                        <td><span class="cross">❌ Site Correios</span></td>
+                        <td><span class="partial">⚠️ Disperso</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Etiqueta automática</strong></td>
+                        <td><span class="check">✅ PDF na hora</span></td>
+                        <td><span class="cross">❌ No balcão</span></td>
+                        <td><span class="check">✅ Sim</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sem fila</strong></td>
+                        <td><span class="check">✅ 100% online</span></td>
+                        <td><span class="cross">❌ Sempre fila</span></td>
+                        <td><span class="check">✅ Sim</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- DEPOIMENTOS -->
+<section class="testimonials">
+    <div class="container">
+        <h2 class="section-title">O que clientes reais dizem</h2>
+        
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <h3 style="color: #FF6B35; margin-bottom: 15px;">Economia clara</h3>
+                <p class="testimonial-text">"Antes eu ia ao balcão dos Correios toda semana. Agora faço tudo online em 5 minutos. Economia média de 35%. Recomendo!"</p>
+                <p class="testimonial-author"> - Fernanda R.</p>
+                <p class="testimonial-role">Vendedora Shopee (São Paulo)</p>
+            </div>
+            
+            <div class="testimonial-card">
+                <h3 style="color: #FF6B35; margin-bottom: 15px;">Prático e rápido</h3>
+                <p class="testimonial-text">"O melhor é que meus clientes recebem o código de rastreio na hora. Menos reclamação, mais satisfação. Pix instantâneo!"</p>
+                <p class="testimonial-author"> - Carlos M.</p>
+                <p class="testimonial-role">Loja E-commerce (Minas Gerais)</p>
+            </div>
+            
+            <div class="testimonial-card">
+                <h3 style="color: #FF6B35; margin-bottom: 15px;">Tudo centralizado</h3>
+                <p class="testimonial-text">"Cotação + pagamento + rastreamento + etiqueta. Tudo em um lugar. Não preciso mais pular entre 3 sites diferentes."</p>
+                <p class="testimonial-author"> - Juliana T.</p>
+                <p class="testimonial-role">Artesã & Vendedora (Rio de Janeiro)</p>
+            </div>
+        </div>
+        
+        <div class="trust">
+            <h3 style="color: #0052A3; font-size: 1.5rem;">🔒 Certificações & Confiança</h3>
+            <div class="trust-items">
+                <div class="trust-item">✅ Correios Brasil oficial</div>
+                <div class="trust-item">✅ Pagar.me certificado</div>
+                <div class="trust-item">✅ HTTPS / SSL</div>
+                <div class="trust-item">✅ Dados criptografados</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq">
+    <div class="container">
+        <h2 class="section-title">Perguntas Frequentes</h2>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Preciso ter contrato com os Correios?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Não! A InnovaEnvios já tem contrato corporativo. Basta cotar, pagar e pronto.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Quais serviços estão disponíveis?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                PAC, SEDEX, SEDEX 10, SEDEX 12 e SEDEX Hoje (conforme CEP e peso).
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Como funciona o rastreamento?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Após pagar, você recebe código de rastreio. Acompanha no painel e site dos Correios em tempo real.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>O pagamento é seguro?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                100% seguro. Pagar.me com criptografia SSL e PCI DSS. Seus dados nunca tocam nossos servidores.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Posso usar em e-commerce?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Com certeza! Shopee, Mercado Livre, Instagram ou e-commerce próprio. Integra com WordPress + WooCommerce.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>E se o produto se perder?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Contrate seguro no checkout. Correios indeniniza conforme valor declarado.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Tem mensalidade ou taxa?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Zero. Pague apenas pelos envios. Sem contrato, sem fidelidade, sem surpresa.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Quanto tempo leva?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                30 segundos pra cotar. 1 minuto pra gerar etiqueta. Leve aos Correios na hora.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">
+                <span>Como rastrear meus envios?</span>
+                <span class="faq-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                Acesse My Account e veja histórico com status em tempo real. Receba notificações por email.
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta">
+    <div class="container">
+        <h2>Pronto para economizar nos seus fretes?</h2>
+        <p>Sem cadastro pra começar. Cote agora, veja quanto economiza. Cadastro é rápido e gratuito.</p>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            <a href="/checkout" class="btn btn-primary" style="background-color: #FF6B35;">CALCULAR MEU FRETE</a>
+            <a href="/my-account/?action=register" class="btn btn-secondary">CRIAR CONTA GRÁTIS</a>
+        </div>
+    </div>
+</section>
+
+<script>
+// FAQ Toggle
+const faqItems = document.querySelectorAll('.faq-item');
+faqItems.forEach(item => {
+    const question = item.querySelector('.faq-question');
+    question.addEventListener('click', () => {
+        item.classList.toggle('active');
+    });
+});
+</script>
+
+</body>
+</html>

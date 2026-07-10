@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# PocketBase
+pb_data/
+pb_migrations/
+.pb_migrations/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+.eslintcache
