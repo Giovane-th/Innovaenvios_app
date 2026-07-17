@@ -42,3 +42,6 @@ Thumbs.db
 # Cache
 .cache/
 .eslintcache
+
+# Hostinger server-only configuration
+api/config.php
