@@ -8,7 +8,8 @@ session_set_cookie_params([
   'httponly'=>true,'samesite'=>'Lax'
 ]);
 session_start();
-$configFile=__DIR__.'/config.php';
+$externalConfig=dirname(__DIR__,4).'/innova-secrets/config.php';
+$configFile=is_file($externalConfig)?$externalConfig:__DIR__.'/config.php';
 if(!is_file($configFile)){ http_response_code(503); echo json_encode(['error'=>'Servidor ainda não configurado']); exit; }
 $config=require $configFile;
 try{
