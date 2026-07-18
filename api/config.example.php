@@ -1,9 +1,8 @@
 <?php
-// Copie para config.php apenas no servidor Hostinger. Nunca envie config.php ao GitHub.
 return [
     'db_host' => 'localhost',
-    'db_name' => 'SEU_BANCO',
-    'db_user' => 'SEU_USUARIO',
-    'db_pass' => 'SUA_SENHA',
+    'db_name' => 'u594323539_IUt1u',
+    'db_user' => 'u594323539_MN2ZE',
+    'db_pass' => 'D54sbCnRKDX98w#',
     'app_url' => 'https://innovaenvios.app',
 ];
