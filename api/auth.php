@@ -21,6 +21,6 @@ if($_SERVER['REQUEST_METHOD']==='POST' && $action==='login'){
 }
 if($_SERVER['REQUEST_METHOD']==='POST' && $action==='logout'){$_SESSION=[];session_destroy();out(['ok'=>true]);}
 if($action==='me'){
- $id=userId();$q=$pdo->prepare('SELECT u.id,u.name,u.phone,w.balance_cents FROM users u JOIN wallets w ON w.user_id=u.id WHERE u.id=?');$q->execute([$id]);out(['user'=>$q->fetch()]);
+ $id=userId();$q=$pdo->prepare('SELECT u.id,u.name,u.phone,u.email,w.balance_cents FROM users u JOIN wallets w ON w.user_id=u.id WHERE u.id=?');$q->execute([$id]);out(['user'=>$q->fetch()]);
 }
 out(['error'=>'Rota inválida'],404);
