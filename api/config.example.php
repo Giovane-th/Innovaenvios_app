@@ -5,5 +5,6 @@ return [
  'app_url'=>'https://innovaenvios.app',
  'correios_usuario'=>'','correios_codigo_acesso'=>'','correios_contrato'=>'','correios_cartao_postagem'=>'',
  'pagarme_secret_key'=>'','pagarme_public_key'=>'','pagarme_webhook_secret'=>'',
+ 'google_client_id'=>'','google_client_secret'=>'',
  'freight_markup_percent'=>40,
 ];
