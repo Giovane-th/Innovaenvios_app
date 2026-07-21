@@ -6,6 +6,8 @@ CREATE TABLE users (
  google_sub VARCHAR(255) NULL UNIQUE,
  pagarme_customer_id VARCHAR(100) NULL UNIQUE,
  password_hash VARCHAR(255) NULL,
+ role ENUM('customer','admin') NOT NULL DEFAULT 'customer',
+ allow_postpaid TINYINT(1) NOT NULL DEFAULT 0,
  status ENUM('active','blocked') NOT NULL DEFAULT 'active',
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
