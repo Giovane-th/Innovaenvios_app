@@ -23,3 +23,4 @@ function body():array{ $v=json_decode(file_get_contents('php://input'),true); re
 function out(array $v,int $code=200):never{ http_response_code($code); echo json_encode($v,JSON_UNESCAPED_UNICODE); exit; }
 function userId():int{ if(empty($_SESSION['user_id'])) out(['error'=>'Não autenticado'],401); return (int)$_SESSION['user_id']; }
 function phone(string $v):string{ return preg_replace('/\D+/','',$v); }
+function requireAdmin(PDO $pdo):int{ $id=userId();$q=$pdo->prepare('SELECT role,status FROM users WHERE id=?');$q->execute([$id]);$u=$q->fetch();if(!$u||$u['status']!=='active'||$u['role']!=='admin')out(['error'=>'Acesso administrativo negado'],403);return $id; }
