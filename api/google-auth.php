@@ -15,7 +15,17 @@ function postForm(string $url,array $fields):array{
   curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query($fields),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['Accept: application/json']]);
   $raw=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$error=curl_error($ch);curl_close($ch);
   $data=json_decode((string)$raw,true);
-  if($error || $code<200 || $code>=300 || !is_array($data)) throw new RuntimeException('Falha ao comunicar com o Google');
+  if($error) throw new RuntimeException('Não foi possível conectar ao Google');
+  if($code<200 || $code>=300){
+    $oauthError=is_array($data)?(string)($data['error']??'erro_desconhecido'):'resposta_invalida';
+    $known=[
+      'invalid_client'=>'Credencial Google inválida: confira o Client ID e a nova chave secreta',
+      'invalid_grant'=>'Código do Google expirado: tente entrar novamente',
+      'redirect_uri_mismatch'=>'URI de retorno diferente da cadastrada no Google Cloud'
+    ];
+    throw new RuntimeException($known[$oauthError]??('Google OAuth: '.$oauthError));
+  }
+  if(!is_array($data)) throw new RuntimeException('Resposta inválida recebida do Google');
   return $data;
 }
 function getJson(string $url,string $token):array{
