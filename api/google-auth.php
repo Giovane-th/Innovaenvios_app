@@ -76,12 +76,12 @@ try{
   if($user){
     if($user['status']!=='active') throw new RuntimeException('Conta bloqueada');
     $id=(int)$user['id'];
-    $pdo->prepare('UPDATE users SET google_sub=?,email=?,name=? WHERE id=?')->execute([$sub,$email,$name,$id]);
+    $pdo->prepare('UPDATE users SET google_sub=?,email=?,name=?,role=IF(?='innovaeducpro@gmail.com','admin',role) WHERE id=?')->execute([$sub,$email,$name,$email,$id]);
   }else{
     $pdo->beginTransaction();
     try{
-      $q=$pdo->prepare('INSERT INTO users(name,email,google_sub,password_hash,phone) VALUES(?,?,?,NULL,NULL)');
-      $q->execute([$name,$email,$sub]);$id=(int)$pdo->lastInsertId();
+      $q=$pdo->prepare('INSERT INTO users(name,email,google_sub,password_hash,phone,role) VALUES(?,?,?,NULL,NULL,?)');
+      $q->execute([$name,$email,$sub,$email==='innovaeducpro@gmail.com'?'admin':'customer']);$id=(int)$pdo->lastInsertId();
       $pdo->prepare('INSERT INTO wallets(user_id,balance_cents) VALUES(?,0)')->execute([$id]);
       $pdo->commit();
     }catch(Throwable $e){$pdo->rollBack();throw $e;}
