@@ -76,7 +76,7 @@ try{
   if($user){
     if($user['status']!=='active') throw new RuntimeException('Conta bloqueada');
     $id=(int)$user['id'];
-    $pdo->prepare('UPDATE users SET google_sub=?,email=?,name=?,role=IF(?='innovaeducpro@gmail.com','admin',role) WHERE id=?')->execute([$sub,$email,$name,$email,$id]);
+    $pdo->prepare('UPDATE users SET google_sub=?,email=?,name=?,role=IF(?=?,?,role) WHERE id=?')->execute([$sub,$email,$name,$email,'innovaeducpro@gmail.com','admin',$id]);
   }else{
     $pdo->beginTransaction();
     try{
