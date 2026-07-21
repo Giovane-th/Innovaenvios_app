@@ -86,6 +86,7 @@ try{
       $pdo->commit();
     }catch(Throwable $e){$pdo->rollBack();throw $e;}
   }
+  $pdo->prepare('INSERT IGNORE INTO wallets(user_id,balance_cents) VALUES(?,0)')->execute([$id]);
   session_regenerate_id(true);$_SESSION['user_id']=$id;
   header('Location: /?oauth=success');exit;
 }catch(Throwable $e){
