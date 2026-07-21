@@ -1,4 +1,16 @@
 <?php
+function pagarmeErrorMessage($data):?string{
+  if(!is_array($data))return null;
+  foreach(['message','error_message','error'] as $key)if(isset($data[$key])&&is_string($data[$key])&&trim($data[$key])!=='')return trim($data[$key]);
+  $messages=[];
+  $walk=function($value)use(&$walk,&$messages){
+    if(count($messages)>=4)return;
+    if(is_string($value)&&trim($value)!=='')$messages[]=trim($value);
+    elseif(is_array($value))foreach($value as $item)$walk($item);
+  };
+  if(isset($data['errors']))$walk($data['errors']);
+  return $messages?implode(' | ',array_unique($messages)):null;
+}
 function pagarmeRequest(array $config,string $method,string $path,?array $payload=null):array{
   $ch=curl_init('https://api.pagar.me/core/v5'.$path);
   $options=[
@@ -11,8 +23,8 @@ function pagarmeRequest(array $config,string $method,string $path,?array $payloa
   $data=json_decode((string)$raw,true);
   if($error)throw new RuntimeException('Não foi possível conectar à Pagar.me');
   if($code<200||$code>=300){
-    $message=is_array($data)?($data['message']??$data['error']??null):null;
-    throw new RuntimeException($message?'Pagar.me: '.$message:'Falha na comunicação com a Pagar.me');
+    $message=pagarmeErrorMessage($data);
+    throw new RuntimeException($message?'Pagar.me: '.$message:'Pagar.me recusou a solicitação (HTTP '.$code.')');
   }
   if(!is_array($data))throw new RuntimeException('Resposta inválida da Pagar.me');
   return $data;
