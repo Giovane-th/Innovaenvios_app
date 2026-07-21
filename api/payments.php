@@ -18,7 +18,7 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
 if($_SERVER['REQUEST_METHOD']!=='POST')out(['error'=>'Método não permitido'],405);
 $d=body();$amount=(int)($d['amount_cents']??0);$method=(string)($d['method']??'pix');
 $document=preg_replace('/\D+/','',(string)($d['document']??''));$paymentPhone=preg_replace('/\D+/','',(string)($d['phone']??''));
-if($amount<2000||$amount>500000||!in_array($method,['pix','credit_card'],true))out(['error'=>'Pagamento inválido'],422);
+if($amount<500||$amount>500000||!in_array($method,['pix','credit_card'],true))out(['error'=>'Pagamento inválido'],422);
 if($method==='credit_card')out(['error'=>'Cartão temporariamente indisponível. Use Pix.'],422);
 function validCpf(string $cpf):bool{if(strlen($cpf)!==11||preg_match('/^(\d)\1{10}$/',$cpf))return false;for($t=9;$t<11;$t++){$sum=0;for($i=0;$i<$t;$i++)$sum+=(int)$cpf[$i]*(($t+1)-$i);$digit=(10*($sum%11))%11;if($digit===10)$digit=0;if((int)$cpf[$t]!==$digit)return false;}return true;}
 $q=$pdo->prepare('SELECT name,phone,email,pagarme_customer_id FROM users WHERE id=?');$q->execute([$uid]);$u=$q->fetch();
