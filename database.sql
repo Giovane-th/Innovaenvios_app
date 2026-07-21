@@ -4,6 +4,7 @@ CREATE TABLE users (
  phone VARCHAR(20) NULL UNIQUE,
  email VARCHAR(190) NULL UNIQUE,
  google_sub VARCHAR(255) NULL UNIQUE,
+ pagarme_customer_id VARCHAR(100) NULL UNIQUE,
  password_hash VARCHAR(255) NULL,
  status ENUM('active','blocked') NOT NULL DEFAULT 'active',
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
