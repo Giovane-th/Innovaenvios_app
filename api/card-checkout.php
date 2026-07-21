@@ -25,7 +25,7 @@ $payload=[
     'interest_type'=>'simple',
     'interest_rate'=>0,
     'max_installments'=>1,
-    'amount'=>500
+    'amount'=>$amount
    ]
   ]
  ],
