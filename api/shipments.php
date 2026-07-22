@@ -1,7 +1,13 @@
 <?php
 require __DIR__.'/bootstrap.php';$uid=userId();
 if($_SERVER['REQUEST_METHOD']==='GET'){
- $q=$pdo->prepare('SELECT s.id,s.tracking_code,u.name AS customer_name,s.service,s.origin_zip,s.destination_zip,s.price_cents,s.status,s.created_at FROM shipments s JOIN users u ON u.id=s.user_id WHERE s.user_id=? ORDER BY s.id DESC LIMIT 100');$q->execute([$uid]);out(['shipments'=>$q->fetchAll()]);
+ $roleQ=$pdo->prepare('SELECT role FROM users WHERE id=?');$roleQ->execute([$uid]);$isAdmin=$roleQ->fetchColumn()==='admin';
+ if($isAdmin){
+  $q=$pdo->query('SELECT s.id,s.tracking_code,u.name AS customer_name,u.email AS customer_email,s.service,s.origin_zip,s.destination_zip,s.price_cents,s.status,s.created_at FROM shipments s JOIN users u ON u.id=s.user_id ORDER BY s.id DESC LIMIT 500');
+ }else{
+  $q=$pdo->prepare('SELECT s.id,s.tracking_code,u.name AS customer_name,u.email AS customer_email,s.service,s.origin_zip,s.destination_zip,s.price_cents,s.status,s.created_at FROM shipments s JOIN users u ON u.id=s.user_id WHERE s.user_id=? ORDER BY s.id DESC LIMIT 100');$q->execute([$uid]);
+ }
+ out(['shipments'=>$q->fetchAll(),'scope'=>$isAdmin?'all':'own']);
 }
 if($_SERVER['REQUEST_METHOD']==='POST'){
  $d=body();$service=trim((string)($d['service']??''));$origin=phone((string)($d['origin_zip']??''));$dest=phone((string)($d['destination_zip']??''));$price=(int)($d['price_cents']??0);
