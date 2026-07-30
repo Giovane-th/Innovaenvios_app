@@ -254,10 +254,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   'contents'=>$contents
  ];
  $prepostId='';
- $tracking='';
- $labelPath='';
- $declarationPath='';
-
  $stage='autenticação no contrato dos Correios';
  try{
   $auth=correiosAuth($config);
@@ -270,21 +266,79 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $prepost=correiosCreatePrepost($config,$payload);
   $prepostId=$prepost['id'];
   $tracking=$prepost['tracking_code'];
-  // Os Correios atribuem o código do objeto somente quando o rótulo é emitido.
-  $stage='solicitação e processamento do PDF da etiqueta';
-  $labelPath=saveLabelPdf(
-   $config,$prepostId,correiosLabelPdf($config,$prepostId)
-  );
+  // A geração do PDF em si é assíncrona e pode levar bem mais que alguns
+  // segundos; este pedido só reserva o recibo. O PDF é buscado depois, por
+  // sondagens curtas do navegador (action=poll), para esta requisição de
+  // criação não ficar presa esperando os Correios e estourar o tempo limite
+  // do proxy/gateway em produção (era a causa do 504 observado).
+  $stage='solicitação do rótulo assíncrono aos Correios';
+  $receipt=correiosRequestLabelReceipt($config,$prepostId);
+ }catch(Throwable $e){
+  if($prepostId!==''){
+   try{correiosCancelPrepost($config,$prepostId);}catch(Throwable $ignored){}
+  }
+  $detail=trim($e->getMessage());
+  if($detail==='')$detail='erro não informado';
+  error_log('Shipment emission ['.$stage.']: '.$detail);
+  out(['error'=>'Falha na etapa de '.$stage.': '.$detail.'. Nenhum saldo foi descontado.'],502);
+ }
+
+ $shipmentData['service']=$service;
+ $shipmentData['origin_zip']=$origin;
+ $q=$pdo->prepare(
+  'INSERT INTO shipment_emissions(user_id,prepost_id,receipt_id,tracking_code,cost_cents,price_cents,payload_json) '.
+  'VALUES(?,?,?,?,?,?,?)'
+ );
+ $q->execute([
+  $uid,$prepostId,$receipt,$tracking?:null,$cost,$price,
+  json_encode($shipmentData,JSON_UNESCAPED_UNICODE)
+ ]);
+ out(['emission'=>['id'=>(int)$pdo->lastInsertId(),'status'=>'processing']],202);
+}
+
+function shipmentEmissionResponse(array $s):array{
+ return [
+  'id'=>$s['id'],
+  'tracking_code'=>$s['tracking_code'],
+  'status'=>'label_generated',
+  'billing_type'=>$s['billing_type'],
+  'cost_cents'=>$s['cost_cents'],
+  'price_cents'=>$s['price_cents'],
+  'wallet_charged_cents'=>$s['wallet_charged_cents'],
+  'label_url'=>'/api/shipment-document.php?id='.$s['id'].'&type=label',
+  'declaration_url'=>'/api/shipment-document.php?id='.$s['id'].'&type=declaration',
+  'customer_emailed'=>$s['customer_emailed'],
+  'admin_emailed'=>$s['admin_emailed']
+ ];
+}
+
+function finalizeShipmentEmission(PDO $pdo,array $config,array $emission,string $pdf):array{
+ $uid=(int)$emission['user_id'];
+ $prepostId=(string)$emission['prepost_id'];
+ $tracking=(string)($emission['tracking_code']??'');
+ $cost=(int)$emission['cost_cents'];
+ $price=(int)$emission['price_cents'];
+ $data=json_decode((string)$emission['payload_json'],true);
+ if(!is_array($data))throw new RuntimeException('Dados da emissão corrompidos');
+
+ $userQ=$pdo->prepare(
+  'SELECT id,name,email,status,allow_postpaid FROM users WHERE id=? LIMIT 1'
+ );
+ $userQ->execute([$uid]);
+ $user=$userQ->fetch();
+ if(!$user||$user['status']!=='active')throw new RuntimeException('Conta não encontrada ou bloqueada');
+
+ $labelPath='';$declarationPath='';
+ try{
+  $labelPath=saveLabelPdf($config,$prepostId,$pdf);
   if($tracking==='')$tracking=correiosRefreshTracking($config,$prepostId);
   if($tracking==='')throw new RuntimeException(
    'O rótulo foi processado, mas os Correios ainda não disponibilizaram o código de rastreio'
   );
-  $stage='geração da declaração de conteúdo';
   $declarationPath=declarationHtmlToPdf(
    $config,$prepostId,correiosContentDeclaration($config,$prepostId)
   );
 
-  $stage='gravação do envio e cobrança da carteira';
   $pdo->beginTransaction();
   $q=$pdo->prepare(
    'SELECT w.balance_cents,u.allow_postpaid FROM wallets w '.
@@ -326,24 +380,24 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $q->execute([
    'user_id'=>$uid,
    'tracking_code'=>$tracking?:null,
-   'service'=>$service,
-   'origin_zip'=>$origin,
-   'destination_zip'=>$dest,
-   'recipient_name'=>$recipientName,
-   'recipient_email'=>$recipientEmail?:null,
-   'recipient_phone'=>$recipientPhone,
-   'recipient_document'=>$recipientDocument,
-   'recipient_street'=>$recipientStreet,
-   'recipient_number'=>$recipientNumber,
-   'recipient_complement'=>$recipientComplement?:null,
-   'recipient_neighborhood'=>$recipientNeighborhood,
-   'recipient_city'=>$recipientCity,
-   'recipient_state'=>$recipientState,
-   'package_weight_grams'=>$weight,
-   'package_height_cm'=>$height,
-   'package_width_cm'=>$width,
-   'package_length_cm'=>$length,
-   'contents_json'=>json_encode($contents,JSON_UNESCAPED_UNICODE),
+   'service'=>(string)($data['service']??'Correios'),
+   'origin_zip'=>(string)($data['origin_zip']??''),
+   'destination_zip'=>(string)($data['destination_zip']??''),
+   'recipient_name'=>(string)($data['recipient_name']??''),
+   'recipient_email'=>($data['recipient_email']??'')?:null,
+   'recipient_phone'=>(string)($data['recipient_phone']??''),
+   'recipient_document'=>(string)($data['recipient_document']??''),
+   'recipient_street'=>(string)($data['recipient_street']??''),
+   'recipient_number'=>(string)($data['recipient_number']??''),
+   'recipient_complement'=>($data['recipient_complement']??'')?:null,
+   'recipient_neighborhood'=>(string)($data['recipient_neighborhood']??''),
+   'recipient_city'=>(string)($data['recipient_city']??''),
+   'recipient_state'=>(string)($data['recipient_state']??''),
+   'package_weight_grams'=>(int)($data['package_weight_grams']??0),
+   'package_height_cm'=>(float)($data['package_height_cm']??0),
+   'package_width_cm'=>(float)($data['package_width_cm']??0),
+   'package_length_cm'=>(float)($data['package_length_cm']??0),
+   'contents_json'=>json_encode($data['contents']??[],JSON_UNESCAPED_UNICODE),
    'cost_cents'=>$cost,
    'price_cents'=>$price,
    'billing_type'=>$billingType,
@@ -363,28 +417,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $pdo->commit();
  }catch(Throwable $e){
   if($pdo->inTransaction())$pdo->rollBack();
-  if($prepostId!==''){
-   try{correiosCancelPrepost($config,$prepostId);}catch(Throwable $ignored){}
-  }
   if($labelPath&&is_file($labelPath))unlink($labelPath);
   if($declarationPath&&is_file($declarationPath))unlink($declarationPath);
-  $detail=trim($e->getMessage());
-  if($detail==='')$detail='erro não informado';
-  error_log('Shipment emission ['.$stage.']: '.$detail);
-  out(['error'=>'Falha na etapa de '.$stage.': '.$detail.'. Nenhum saldo foi descontado.'],502);
+  throw $e;
  }
 
  $attachments=[
-  [
-   'path'=>$labelPath,
-   'name'=>'etiqueta-'.$tracking.'.pdf',
-   'type'=>'application/pdf'
-  ],
-  [
-   'path'=>$declarationPath,
-   'name'=>'declaracao-conteudo-'.$tracking.'.pdf',
-   'type'=>'application/pdf'
-  ]
+  ['path'=>$labelPath,'name'=>'etiqueta-'.$tracking.'.pdf','type'=>'application/pdf'],
+  ['path'=>$declarationPath,'name'=>'declaracao-conteudo-'.$tracking.'.pdf','type'=>'application/pdf']
  ];
  $mailHtml=
   '<h2>Seu envio foi gerado</h2>'.
@@ -407,11 +447,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if($internal&&!empty($config['admin_notification_email'])){
   try{
    if(sendDocumentEmail(
-    $config,
-    (string)$config['admin_notification_email'],
-    'Envio interno gerado '.$tracking,
-    $mailHtml,
-    $attachments
+    $config,(string)$config['admin_notification_email'],
+    'Envio interno gerado '.$tracking,$mailHtml,$attachments
    )){
     $pdo->prepare(
      'UPDATE shipments SET admin_emailed_at=NOW() WHERE id=?'
@@ -423,21 +460,94 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
  }
 
- out([
-  'shipment'=>[
-   'id'=>$shipmentId,
-   'tracking_code'=>$tracking,
-   'status'=>'label_generated',
-   'billing_type'=>$billingType,
-   'cost_cents'=>$cost,
-   'price_cents'=>$price,
-   'wallet_charged_cents'=>$charged,
-   'label_url'=>'/api/shipment-document.php?id='.$shipmentId.'&type=label',
-   'declaration_url'=>'/api/shipment-document.php?id='.$shipmentId.'&type=declaration',
-   'customer_emailed'=>$customerEmailed,
-   'admin_emailed'=>$adminEmailed
-  ]
- ],201);
+ $pdo->prepare(
+  'UPDATE shipment_emissions SET status="ready",shipment_id=?,tracking_code=? WHERE id=?'
+ )->execute([$shipmentId,$tracking,(int)$emission['id']]);
+
+ return shipmentEmissionResponse([
+  'id'=>$shipmentId,'tracking_code'=>$tracking,'billing_type'=>$billingType,
+  'cost_cents'=>$cost,'price_cents'=>$price,'wallet_charged_cents'=>$charged,
+  'customer_emailed'=>$customerEmailed,'admin_emailed'=>$adminEmailed
+ ]);
+}
+
+if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')==='poll'){
+ $d=body();
+ $emissionId=(int)($d['emission_id']??0);
+ if($emissionId<1)out(['error'=>'emission_id inválido'],422);
+ $q=$pdo->prepare('SELECT * FROM shipment_emissions WHERE id=? AND user_id=?');
+ $q->execute([$emissionId,$uid]);
+ $emission=$q->fetch();
+ if(!$emission)out(['error'=>'Emissão não encontrada'],404);
+
+ if($emission['status']==='ready'){
+  $q=$pdo->prepare(
+   'SELECT s.id,s.tracking_code,s.billing_type,s.cost_cents,s.price_cents,'.
+   's.wallet_charged_cents,s.customer_emailed_at,s.admin_emailed_at '.
+   'FROM shipments s WHERE s.id=?'
+  );
+  $q->execute([$emission['shipment_id']]);
+  $s=$q->fetch();
+  if(!$s)out(['error'=>'Envio não encontrado'],404);
+  out(['status'=>'ready','shipment'=>shipmentEmissionResponse([
+   'id'=>$s['id'],'tracking_code'=>$s['tracking_code'],'billing_type'=>$s['billing_type'],
+   'cost_cents'=>$s['cost_cents'],'price_cents'=>$s['price_cents'],
+   'wallet_charged_cents'=>$s['wallet_charged_cents'],
+   'customer_emailed'=>!empty($s['customer_emailed_at']),'admin_emailed'=>!empty($s['admin_emailed_at'])
+  ])]);
+ }
+ if($emission['status']==='error'){
+  out(['status'=>'error','error'=>$emission['error_message']?:'Falha ao emitir a etiqueta']);
+ }
+ if($emission['status']!=='processing'){
+  // Já reivindicada por outra sondagem concorrente (mesma emissão em duas abas); aguarde.
+  out(['status'=>'processing']);
+ }
+
+ $maxAttempts=60;
+ try{
+  $result=correiosFetchLabelOnce($config,(string)$emission['receipt_id']);
+ }catch(Throwable $e){
+  $result=['ready'=>false,'detail'=>$e->getMessage()];
+ }
+
+ if(empty($result['ready'])){
+  $attempts=(int)$emission['attempts']+1;
+  if($attempts>=$maxAttempts){
+   $pdo->prepare(
+    'UPDATE shipment_emissions SET status="error",attempts=?,error_message=? WHERE id=? AND status="processing"'
+   )->execute([
+    $attempts,
+    'O rótulo não ficou disponível no prazo de processamento: '.($result['detail']??'—'),
+    $emissionId
+   ]);
+   try{correiosCancelPrepost($config,(string)$emission['prepost_id']);}catch(Throwable $ignored){}
+   out(['status'=>'error','error'=>'O rótulo não ficou disponível no prazo de processamento dos Correios. Tente novamente mais tarde.']);
+  }
+  $pdo->prepare(
+   'UPDATE shipment_emissions SET attempts=? WHERE id=? AND status="processing"'
+  )->execute([$attempts,$emissionId]);
+  out(['status'=>'processing','attempt'=>$attempts]);
+ }
+
+ // Reivindica a finalização via compare-and-set para não gravar/cobrar duas
+ // vezes se duas sondagens da mesma emissão chegarem quase juntas.
+ $claim=$pdo->prepare('UPDATE shipment_emissions SET status="finalizing" WHERE id=? AND status="processing"');
+ $claim->execute([$emissionId]);
+ if($claim->rowCount()<1)out(['status'=>'processing']);
+
+ try{
+  $shipment=finalizeShipmentEmission($pdo,$config,$emission,(string)$result['pdf']);
+  out(['status'=>'ready','shipment'=>$shipment]);
+ }catch(Throwable $e){
+  $detail=trim($e->getMessage())?:'erro não informado';
+  error_log('Shipment finalize: '.$detail);
+  $pdo->prepare(
+   'UPDATE shipment_emissions SET status="error",error_message=? WHERE id=?'
+  )->execute([$detail,$emissionId]);
+  try{correiosCancelPrepost($config,(string)$emission['prepost_id']);}catch(Throwable $ignored){}
+  out(['status'=>'error','error'=>'Falha ao finalizar a etiqueta: '.$detail.'. Nenhum saldo foi descontado.']);
+ }
 }
 
 out(['error'=>'Método não permitido'],405);

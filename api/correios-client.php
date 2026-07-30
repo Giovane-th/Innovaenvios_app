@@ -40,12 +40,12 @@ function correiosAuth(array $config):array{
 }
 function correiosTokenValue(array $config):string{return (string)correiosAuth($config)['token'];}
 
-function correiosRequest(array $config,string $method,string $path,?array $json=null,array $accept=['application/json']):array{
+function correiosRequest(array $config,string $method,string $path,?array $json=null,array $accept=['application/json'],int $timeout=60):array{
  $url='https://api.correios.com.br/prepostagem/v1/'.ltrim($path,'/');
  $headers=['Authorization: Bearer '.correiosTokenValue($config),'Accept: '.implode(', ',$accept)];
  if($json!==null)$headers[]='Content-Type: application/json';
  $ch=curl_init($url);
- curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_TIMEOUT=>60,CURLOPT_HTTPHEADER=>$headers]);
+ curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_TIMEOUT=>$timeout,CURLOPT_HTTPHEADER=>$headers]);
  if($json!==null)curl_setopt($ch,CURLOPT_POSTFIELDS,json_encode($json,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
  $raw=curl_exec($ch);$error=curl_error($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$headerSize=(int)curl_getinfo($ch,CURLINFO_HEADER_SIZE);curl_close($ch);
  if($raw===false)throw new RuntimeException('Falha de rede com os Correios: '.$error);
@@ -68,44 +68,47 @@ function correiosRequest(array $config,string $method,string $path,?array $json=
  return ['status'=>$code,'content_type'=>$contentType,'body'=>$body,'json'=>json_decode($body,true)];
 }
 
-function correiosLabelPdf(array $config,string $prepostId):string{
+function correiosRequestLabelReceipt(array $config,string $prepostId):string{
  // GET /prepostagem/v1/prepostagens/{id} responde 405 (Method Not Allowed) nesta
  // conta/contrato — não existe forma de consultar o status antes de pedir o rótulo.
- // A emissão é assíncrona: o POST devolve um recibo e o GET posterior entrega o PDF.
+ // A emissão é assíncrona: este POST só devolve um recibo; o PDF em si é buscado
+ // depois, em chamadas HTTP separadas (ver correiosFetchLabelOnce), para não
+ // segurar uma única requisição PHP por dezenas de segundos.
  $request=correiosRequest($config,'POST','prepostagens/rotulo/assincrono/pdf',[
   'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>'P','formatoRotulo'=>'ET'
  ],['application/json']);
  $receipt=correiosNestedValue($request['json'],['idrecibo','recibo','id']);
  if($receipt==='')throw new RuntimeException('Os Correios não retornaram o recibo de geração do rótulo');
- $lastDetail='processamento pendente';
- // A geração assíncrona do rótulo pode levar bem mais que alguns segundos;
- // 12 tentativas de 500ms (~6s) esgotavam antes de os Correios terminarem.
- // php.ini de produção permite max_execution_time=360s, então há folga
- // para esperar até ~1min sem estourar o tempo de execução do PHP.
- for($attempt=1;$attempt<=30;$attempt++){
-  if($attempt>1)sleep(2);
-  try{
-   $response=correiosRequest(
-    $config,'GET','prepostagens/rotulo/download/assincrono/'.rawurlencode($receipt),
-    null,['application/pdf','application/json']
-   );
-   if(str_contains($response['content_type'],'pdf')||str_starts_with($response['body'],'%PDF')){
-    return $response['body'];
-   }
-   $data=$response['json'];
-   if(is_array($data)){
-    $encoded=correiosNestedValue($data,['dados','arquivo','pdf','conteudo']);
-    if($encoded!==''){
-     $pdf=base64_decode(preg_replace('/\\s+/','',$encoded),true);
-     if(is_string($pdf)&&str_starts_with($pdf,'%PDF'))return $pdf;
-    }
-    $lastDetail=correiosNestedValue($data,['mensagem','message','status','situacao'])?:$lastDetail;
-   }
-  }catch(Throwable $e){
-   $lastDetail=$e->getMessage();
-  }
+ return $receipt;
+}
+
+function correiosFetchLabelOnce(array $config,string $receipt):array{
+ // Uma única tentativa de leitura do PDF assíncrono. O chamador (api/shipments.php,
+ // action=poll) repete isso a cada sondagem vinda do navegador, em requisições
+ // HTTP curtas e independentes, em vez de um laço de sleep() preso numa única
+ // requisição — o que estourava o tempo limite do proxy/gateway em produção
+ // (504) mesmo com max_execution_time do PHP configurado com folga.
+ // Timeout curto (bem abaixo do padrão de 60s de proxies/gateways) porque o
+ // chamador repete esta chamada a cada sondagem — uma única tentativa nunca
+ // deve arriscar segurar a requisição até o limite do gateway.
+ $response=correiosRequest(
+  $config,'GET','prepostagens/rotulo/download/assincrono/'.rawurlencode($receipt),
+  null,['application/pdf','application/json'],20
+ );
+ if(str_contains($response['content_type'],'pdf')||str_starts_with($response['body'],'%PDF')){
+  return ['ready'=>true,'pdf'=>$response['body']];
  }
- throw new RuntimeException('O rótulo não ficou disponível no prazo de processamento: '.$lastDetail);
+ $detail='processamento pendente';
+ $data=$response['json'];
+ if(is_array($data)){
+  $encoded=correiosNestedValue($data,['dados','arquivo','pdf','conteudo']);
+  if($encoded!==''){
+   $pdf=base64_decode(preg_replace('/\\s+/','',$encoded),true);
+   if(is_string($pdf)&&str_starts_with($pdf,'%PDF'))return ['ready'=>true,'pdf'=>$pdf];
+  }
+  $detail=correiosNestedValue($data,['mensagem','message','status','situacao'])?:$detail;
+ }
+ return ['ready'=>false,'detail'=>$detail];
 }
 
 function correiosRefreshTracking(array $config,string $prepostId):string{
