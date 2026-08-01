@@ -471,7 +471,7 @@ function finalizeShipmentEmission(PDO $pdo,array $config,array $emission,string 
  ]);
 }
 
-if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')==='poll'){
+if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
  $d=body();
  $emissionId=(int)($d['emission_id']??0);
  if($emissionId<1)out(['error'=>'emission_id inválido'],422);
