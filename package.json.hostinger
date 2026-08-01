@@ -1,0 +1,26 @@
+{
+  "name": "monorepo-innova",
+  "version": "1.0.0",
+  "description": "In'Nova Envios - Plataforma Logística Inteligente",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix apps/web && npm install --prefix apps/api && npm install --prefix apps/pocketbase",
+    "build-web": "npm run build --prefix apps/web",
+    "build-all": "npm run build-web",
+    "start-api": "node --env-file=.env apps/api/src/main.js",
+    "start-web": "vite preview --outDir dist/apps/web --host 0.0.0.0 --port 3000",
+    "production": "npm run build-all && npm start",
+    "deploy": "npm run build-all && cp -r dist/apps/web/* ./public_html/"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

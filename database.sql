@@ -1,0 +1,75 @@
+CREATE TABLE users (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(120) NOT NULL,
+ phone VARCHAR(20) NULL UNIQUE,
+ email VARCHAR(190) NULL UNIQUE,
+ google_sub VARCHAR(255) NULL UNIQUE,
+ pagarme_customer_id VARCHAR(100) NULL UNIQUE,
+ password_hash VARCHAR(255) NULL,
+ role ENUM('customer','admin') NOT NULL DEFAULT 'customer',
+ allow_postpaid TINYINT(1) NOT NULL DEFAULT 0,
+ status ENUM('active','blocked') NOT NULL DEFAULT 'active',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE wallets (
+ user_id BIGINT UNSIGNED PRIMARY KEY,
+ balance_cents BIGINT NOT NULL DEFAULT 0,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ CONSTRAINT fk_wallet_user FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE shipments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ tracking_code VARCHAR(32) NOT NULL UNIQUE,
+ service VARCHAR(80) NOT NULL,
+ origin_zip CHAR(8) NOT NULL,
+ destination_zip CHAR(8) NOT NULL,
+ cost_cents BIGINT NOT NULL DEFAULT 0,
+ price_cents BIGINT NOT NULL,
+ billing_type ENUM('wallet','internal') NOT NULL DEFAULT 'wallet',
+ wallet_charged_cents BIGINT NOT NULL DEFAULT 0,
+ status VARCHAR(32) NOT NULL DEFAULT 'created',
+ correios_prepost_id VARCHAR(80) NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_ship_user_created(user_id,created_at),
+ CONSTRAINT fk_ship_user FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE wallet_transactions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ type ENUM('credit_purchase','shipment','refund','adjustment') NOT NULL,
+ amount_cents BIGINT NOT NULL,
+ reference_type VARCHAR(40) NULL,
+ reference_id BIGINT UNSIGNED NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_tx_user_created(user_id,created_at),
+ CONSTRAINT fk_tx_user FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE payment_orders (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ provider VARCHAR(20) NOT NULL DEFAULT 'pagarme',
+ provider_order_id VARCHAR(100) NULL UNIQUE,
+ amount_cents BIGINT NOT NULL,
+ method ENUM('pix','credit_card') NOT NULL,
+ status VARCHAR(32) NOT NULL DEFAULT 'pending',
+ credited_at TIMESTAMP NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_pay_user_created(user_id,created_at),
+ CONSTRAINT fk_pay_user FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE shipping_simulations (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ origin_zip CHAR(8) NOT NULL,
+ destination_zip CHAR(8) NOT NULL,
+ package_format VARCHAR(40) NOT NULL,
+ weight_kg DECIMAL(10,3) NOT NULL,
+ height_cm DECIMAL(10,2) NOT NULL,
+ width_cm DECIMAL(10,2) NOT NULL,
+ length_cm DECIMAL(10,2) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_sim_user_created(user_id,created_at),
+ CONSTRAINT fk_sim_user FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

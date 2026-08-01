@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/bootstrap.php';
+$uid=userId();
+$id=(int)($_GET['id']??0);
+$type=(string)($_GET['type']??'label');
+if($id<1||!in_array($type,['label','declaration'],true))out(['error'=>'Documento inválido'],422);
+$roleQ=$pdo->prepare('SELECT role FROM users WHERE id=? LIMIT 1');$roleQ->execute([$uid]);$isAdmin=$roleQ->fetchColumn()==='admin';
+$column=$type==='label'?'label_file':'declaration_file';
+$sql='SELECT '.$column.' AS file_path,tracking_code FROM shipments WHERE id=?'.($isAdmin?'':' AND user_id=?').' LIMIT 1';
+$q=$pdo->prepare($sql);$q->execute($isAdmin?[$id]:[$id,$uid]);$row=$q->fetch();
+if(!$row||empty($row['file_path']))out(['error'=>'Documento ainda não disponível'],404);
+$base=realpath(rtrim((string)($config['shipping_documents_dir']??''),'/'));
+$file=realpath((string)$row['file_path']);
+if(!$base||!$file||!str_starts_with($file,$base.DIRECTORY_SEPARATOR)||!is_file($file)||!is_readable($file))out(['error'=>'Documento não encontrado'],404);
+$name=($type==='label'?'etiqueta-':'declaracao-conteudo-').preg_replace('/[^A-Za-z0-9_-]/','',(string)$row['tracking_code']).'.pdf';
+header('Content-Type: application/pdf');
+header('Content-Length: '.filesize($file));
+header('Content-Disposition: inline; filename="'.$name.'"');
+header('X-Content-Type-Options: nosniff');
+readfile($file);
+exit;
