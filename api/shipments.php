@@ -103,7 +103,7 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
   $q=$pdo->query(
    'SELECT s.id,s.tracking_code,u.name AS customer_name,u.email AS customer_email,'.
    's.service,s.origin_zip,s.destination_zip,s.price_cents,s.billing_type,'.
-   's.wallet_charged_cents,s.status,s.created_at '.
+   's.wallet_charged_cents,s.status,s.created_atId ' .
    'FROM shipments s JOIN users u ON u.id=s.user_id '.
    'ORDER BY s.id DESC LIMIT 500'
   );
@@ -120,7 +120,7 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
  out(['shipments'=>$q->fetchAll(),'scope'=>$isAdmin?'all':'own']);
 }
 
-if($_SERVER['REQUEST_METHOD']==='POST'){
+if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
  $d=body();
  $service=trim((string)($d['service']??''));
  $serviceCode=preg_replace('/\D+/','',(string)($d['service_code']??''));
@@ -471,7 +471,7 @@ function finalizeShipmentEmission(PDO $pdo,array $config,array $emission,string 
  ]);
 }
 
-if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
+if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')==='poll'){
  $d=body();
  $emissionId=(int)($d['emission_id']??0);
  if($emissionId<1)out(['error'=>'emission_id inválido'],422);
