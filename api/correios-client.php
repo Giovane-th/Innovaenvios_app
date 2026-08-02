@@ -74,12 +74,28 @@ function correiosRequestLabelReceipt(array $config,string $prepostId):string{
  // A emissão é assíncrona: este POST só devolve um recibo; o PDF em si é buscado
  // depois, em chamadas HTTP separadas (ver correiosFetchLabelOnce), para não
  // segurar uma única requisição PHP por dezenas de segundos.
- $request=correiosRequest($config,'POST','prepostagens/rotulo/assincrono/pdf',[
-  'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>'P','formatoRotulo'=>'ET'
- ],['application/json']);
- $receipt=correiosNestedValue($request['json'],['idrecibo','recibo','id']);
- if($receipt==='')throw new RuntimeException('Os Correios não retornaram o recibo de geração do rótulo');
- return $receipt;
+ //
+ // A pré-postagem recém-criada pode levar um instante para sair do status
+ // "Pendente" do lado dos Correios antes de aceitar o pedido de rótulo
+ // (PPN-288). Por isso, algumas tentativas curtas com pausa antes de desistir.
+ $maxAttempts=5;
+ $lastError='';
+ for($attempt=1;$attempt<=$maxAttempts;$attempt++){
+  try{
+   $request=correiosRequest($config,'POST','prepostagens/rotulo/assincrono/pdf',[
+    'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>'P','formatoRotulo'=>'ET'
+   ],['application/json']);
+   $receipt=correiosNestedValue($request['json'],['idrecibo','recibo','id']);
+   if($receipt==='')throw new RuntimeException('Os Correios não retornaram o recibo de geração do rótulo');
+   return $receipt;
+  }catch(Throwable $e){
+   $lastError=$e->getMessage();
+   $isPendingStatus=str_contains($lastError,'PPN-288')||str_contains(mb_strtolower($lastError),'status igual a pendente');
+   if(!$isPendingStatus||$attempt>=$maxAttempts)throw $e;
+   usleep(700000);
+  }
+ }
+ throw new RuntimeException($lastError?:'Falha ao solicitar o rótulo após múltiplas tentativas');
 }
 
 function correiosFetchLabelOnce(array $config,string $receipt):array{
