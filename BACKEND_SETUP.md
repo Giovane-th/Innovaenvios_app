@@ -1,5 +1,14 @@
 # Backend multiusuário na Hostinger
 
+## Deploy
+
+Este projeto é PHP puro servido como está (sem build): `api/*.php` no backend e HTML/assets estáticos na raiz. Dependências PHP (`dompdf`, `phpmailer`) já vêm versionadas em `vendor/`, então não é preciso rodar `composer install` no servidor.
+
+- **Deploy**: Auto Deploy do Hostinger (hPanel → Git) puxa automaticamente a branch `main` a cada push.
+- **CI**: todo push/PR para `main` roda `.github/workflows/php-ci.yml` (`composer validate`, `composer install`, `php -l` em `api/*.php` nas versões 8.1/8.2/8.3) antes do merge.
+
+## Configuração inicial
+
 1. No hPanel, crie um banco MySQL e um usuário.
 2. Abra o phpMyAdmin e importe database.sql.
 3. Copie api/config.example.php para api/config.php no servidor.
