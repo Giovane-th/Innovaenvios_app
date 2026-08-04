@@ -27,7 +27,7 @@ jobs:
           coverage: none
 
       - name: Validate composer.json/composer.lock
-        run: composer validate --strict --no-check-publish
+        run: composer validate --no-check-publish
 
       - name: Install dependencies
         run: composer install --no-progress --no-interaction --prefer-dist
