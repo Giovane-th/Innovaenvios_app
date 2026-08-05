@@ -19,6 +19,8 @@ try{
   PDO::ATTR_EMULATE_PREPARES=>false
  ]);
 }catch(Throwable $e){ http_response_code(503); echo json_encode(['error'=>'Banco indisponível']); exit; }
+require __DIR__.'/settings-service.php';
+$config=array_merge($config,loadAppSettings($pdo,$config));
 function requireSameOrigin(array $config):void{
  if(in_array($_SERVER['REQUEST_METHOD']??'GET',['GET','HEAD','OPTIONS'],true)) return;
  $source=trim((string)($_SERVER['HTTP_ORIGIN']??$_SERVER['HTTP_REFERER']??''));
