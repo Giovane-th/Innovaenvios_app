@@ -99,11 +99,13 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
  $roleQ=$pdo->prepare('SELECT role FROM users WHERE id=?');
  $roleQ->execute([$uid]);
  $isAdmin=$roleQ->fetchColumn()==='admin';
- if($isAdmin){
+ $forceOwn=($_GET['scope']??'')==='own';
+ if($isAdmin&&!$forceOwn){
   $q=$pdo->query(
    'SELECT s.id,s.tracking_code,u.name AS customer_name,u.email AS customer_email,'.
    's.service,s.origin_zip,s.destination_zip,s.price_cents,s.billing_type,'.
-   's.wallet_charged_cents,s.status,s.created_atId ' .
+   's.wallet_charged_cents,s.status,s.created_at,'.
+   "(s.label_file IS NOT NULL AND s.label_file<>'') AS has_label ".
    'FROM shipments s JOIN users u ON u.id=s.user_id '.
    'ORDER BY s.id DESC LIMIT 500'
   );
@@ -111,13 +113,14 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
   $q=$pdo->prepare(
    'SELECT s.id,s.tracking_code,u.name AS customer_name,u.email AS customer_email,'.
    's.service,s.origin_zip,s.destination_zip,s.price_cents,s.billing_type,'.
-   's.wallet_charged_cents,s.status,s.created_at '.
+   's.wallet_charged_cents,s.status,s.created_at,'.
+   "(s.label_file IS NOT NULL AND s.label_file<>'') AS has_label ".
    'FROM shipments s JOIN users u ON u.id=s.user_id '.
    'WHERE s.user_id=? ORDER BY s.id DESC LIMIT 100'
   );
   $q->execute([$uid]);
  }
- out(['shipments'=>$q->fetchAll(),'scope'=>$isAdmin?'all':'own']);
+ out(['shipments'=>$q->fetchAll(),'scope'=>($isAdmin&&!$forceOwn)?'all':'own']);
 }
 
 if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
