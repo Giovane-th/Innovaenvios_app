@@ -68,7 +68,7 @@ function correiosRequest(array $config,string $method,string $path,?array $json=
  return ['status'=>$code,'content_type'=>$contentType,'body'=>$body,'json'=>json_decode($body,true)];
 }
 
-function correiosRequestLabelReceipt(array $config,string $prepostId,?array &$rawResponse=null):string{
+function correiosRequestLabelReceipt(array $config,string $prepostId,?array &$rawResponse=null,string $tipoRotulo=''):string{
  // GET /prepostagem/v1/prepostagens/{id} responde 405 (Method Not Allowed) nesta
  // conta/contrato — não existe forma de consultar o status antes de pedir o rótulo.
  // A emissão é assíncrona: este POST só devolve um recibo; o PDF em si é buscado
@@ -83,7 +83,7 @@ function correiosRequestLabelReceipt(array $config,string $prepostId,?array &$ra
  for($attempt=1;$attempt<=$maxAttempts;$attempt++){
   try{
    $request=correiosRequest($config,'POST','prepostagens/rotulo/assincrono/pdf',[
-    'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>'P','formatoRotulo'=>'ET'
+    'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>$tipoRotulo!==''?$tipoRotulo:'P','formatoRotulo'=>'ET'
    ],['application/json']);
    $rawResponse=is_array($request['json'])?$request['json']:null;
    $receipt=correiosNestedValue($request['json'],['idrecibo','recibo','id']);
@@ -172,6 +172,10 @@ function correiosCreatePrepost(array $config,array $payload):array{
  if(!is_array($data))throw new RuntimeException('Resposta inválida ao criar pré-postagem');
  $id=correiosNestedValue($data,['id','idprepostagem','codigoprepostagem']);
  $tracking=correiosTrackingValue($data);
+ // Os Correios registram um tipoRotulo próprio da pré-postagem já na criação
+ // (ex.: "EN"); o pedido de impressão do rótulo precisa usar esse mesmo
+ // valor, não um fixo, senão a pré-postagem trava no status "Pendente".
+ $tipoRotulo=correiosNestedValue($data,['tiporotulo']);
  if($id==='')throw new RuntimeException((string)($data['mensagem']??'Os Correios não retornaram o identificador da pré-postagem'));
  if($tracking===''){
   try{
@@ -182,7 +186,7 @@ function correiosCreatePrepost(array $config,array $payload):array{
    }
   }catch(Throwable $ignored){}
  }
- return ['id'=>$id,'tracking_code'=>$tracking,'raw'=>$data];
+ return ['id'=>$id,'tracking_code'=>$tracking,'tipo_rotulo'=>$tipoRotulo,'raw'=>$data];
 }
 function correiosBuildPrepostPayload(array $config,array $auth,array $user,array $sender,array $shipment):array{
  $serviceCode=(string)($shipment['service_code']??'');if($serviceCode==='')throw new RuntimeException('Código do serviço dos Correios não configurado');

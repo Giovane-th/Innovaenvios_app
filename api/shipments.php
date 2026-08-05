@@ -281,7 +281,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
   // do proxy/gateway em produção (era a causa do 504 observado).
   $stage='solicitação do rótulo assíncrono aos Correios';
   $labelReceiptRaw=null;
-  $receipt=correiosRequestLabelReceipt($config,$prepostId,$labelReceiptRaw);
+  $receipt=correiosRequestLabelReceipt($config,$prepostId,$labelReceiptRaw,(string)($prepost['tipo_rotulo']??''));
   $shipmentData['correios_label_receipt_response']=$labelReceiptRaw;
  }catch(Throwable $e){
   if($prepostId!==''){
@@ -439,7 +439,10 @@ function finalizeShipmentEmission(PDO $pdo,array $config,array $emission,string 
  $mailHtml=
   '<h2>Seu envio foi gerado</h2>'.
   '<p>Código de rastreio: <strong>'.htmlspecialchars($tracking).'</strong></p>'.
-  '<p>A etiqueta e a declaração de conteúdo estão anexadas.</p>';
+  '<p>A etiqueta e a declaração de conteúdo estão anexadas.</p>'.
+  '<p><strong>Próximo passo:</strong> imprima a etiqueta e a declaração de conteúdo, '.
+  'cole a etiqueta na embalagem e leve até uma agência dos Correios para postagem. '.
+  'A postagem física é de responsabilidade do remetente — o In\'Nova Envios não faz a coleta.</p>';
 
  $customerEmailed=false;$adminEmailed=false;
  try{
