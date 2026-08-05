@@ -83,7 +83,7 @@ try{$auth=correiosAuth($config);}catch(Throwable $e){out(['error'=>publicCorreio
 $token=(string)$auth['token'];
 $tokenCard=is_array($auth['cartaoPostagem']??null)?$auth['cartaoPostagem']:[];
 $contract=trim((string)($tokenCard['contrato']??$config['correios_contrato']??''));
-$dr=(int)($tokenCard['dr']??$config['correios_dr']??0);
+$dr=trim((string)($tokenCard['dr']??$config['correios_dr']??''));
 
 $lote='INNOVA-'.date('YmdHis').'-'.bin2hex(random_bytes(3));
 $priceParams=[];$deadlineParams=[];
@@ -96,7 +96,7 @@ foreach($services as $code=>$name){
   'comprimento'=>(string)$length,'largura'=>(string)$width,'altura'=>(string)$height,'diametro'=>'0',
   'servicosAdicionais'=>[],'vlDeclarado'=>'0'
  ];
- if($contract!==''&&$dr>0){$item['nuContrato']=$contract;$item['nuDR']=$dr;}
+ if($contract!==''&&$dr!==''){$item['nuContrato']=$contract;$item['nuDR']=$dr;}
  $priceParams[]=$item;
  $deadlineParams[]=[
   'coProduto'=>$code,'nuRequisicao'=>$requestId,'cepOrigem'=>$origin,

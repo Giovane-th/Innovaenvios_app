@@ -38,7 +38,7 @@ function verifiedCorreiosPrice(
  $token=(string)$auth['token'];
  $card=is_array($auth['cartaoPostagem']??null)?$auth['cartaoPostagem']:[];
  $contract=trim((string)($card['contrato']??$config['correios_contrato']??''));
- $dr=(int)($card['dr']??$config['correios_dr']??0);
+ $dr=trim((string)($card['dr']??$config['correios_dr']??''));
  $item=[
   'coProduto'=>$serviceCode,
   'nuRequisicao'=>'EMISSAO-'.date('YmdHis').'-'.bin2hex(random_bytes(3)),
@@ -53,7 +53,7 @@ function verifiedCorreiosPrice(
   'servicosAdicionais'=>[],
   'vlDeclarado'=>'0'
  ];
- if($contract!==''&&$dr>0){
+ if($contract!==''&&$dr!==''){
   $item['nuContrato']=$contract;
   $item['nuDR']=$dr;
  }

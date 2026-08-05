@@ -21,7 +21,7 @@ function correiosAuth(array $config):array{
   $data=['token'=>$credential,'id'=>(string)$config['correios_usuario'],'cartaoPostagem'=>[
    'numero'=>(string)$config['correios_cartao_postagem'],
    'contrato'=>(string)($config['correios_contrato']??''),
-   'dr'=>(int)($config['correios_dr']??0)
+   'dr'=>trim((string)($config['correios_dr']??''))
   ]];
   $cache[$cacheKey]=['data'=>$data,'at'=>time()];
   return $data;

@@ -12,7 +12,7 @@ function appSettingsFields():array{
   'correios_codigo_acesso'=>['secret'=>true,'type'=>'string'],
   'correios_chave_acesso'=>['secret'=>true,'type'=>'string'],
   'correios_contrato'=>['secret'=>false,'type'=>'string'],
-  'correios_dr'=>['secret'=>false,'type'=>'int'],
+  'correios_dr'=>['secret'=>false,'type'=>'string'],
   'correios_cartao_postagem'=>['secret'=>false,'type'=>'string'],
   'correios_id'=>['secret'=>false,'type'=>'string'],
   'correios_servico_pac'=>['secret'=>false,'type'=>'string'],
