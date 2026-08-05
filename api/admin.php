@@ -49,7 +49,10 @@ if($id<1)out(['error'=>'Cliente inválido'],422);
 $q=$pdo->prepare('SELECT id,role,status,allow_postpaid FROM users WHERE id=?');$q->execute([$id]);$target=$q->fetch();
 if(!$target)out(['error'=>'Cliente não encontrado'],404);
 if($target['role']==='admin')out(['error'=>'Outra conta administrativa não pode ser alterada aqui'],422);
-if(in_array($action,['reset_wallet','clear_debt'],true)){
+if(in_array($action,['reset_wallet','clear_debt','set_wallet'],true)){
+ if($action==='set_wallet'&&!array_key_exists('value_cents',$d))out(['error'=>'Informe o novo valor da carteira'],422);
+ $target_cents=$action==='set_wallet'?(int)round((float)$d['value_cents']):0;
+ if($action==='set_wallet'&&(!is_finite((float)$d['value_cents'])||abs($target_cents)>100000000))out(['error'=>'Valor de carteira inválido'],422);
  try{
   $pdo->beginTransaction();
   $walletQ=$pdo->prepare('SELECT balance_cents FROM wallets WHERE user_id=? FOR UPDATE');
@@ -64,12 +67,14 @@ if(in_array($action,['reset_wallet','clear_debt'],true)){
    $pdo->commit();
    out(['ok'=>true,'balance_cents'=>$current,'message'=>'Cliente não possui saldo devedor']);
   }
-  if($current!==0){
-   $pdo->prepare('UPDATE wallets SET balance_cents=0 WHERE user_id=?')->execute([$id]);
-   $pdo->prepare("INSERT INTO wallet_transactions(user_id,type,amount_cents,reference_type,reference_id) VALUES(?,'adjustment',?,'admin_balance_reset',?)")->execute([$id,-$current,$adminId]);
+  $delta=$target_cents-$current;
+  if($current!==$target_cents){
+   $pdo->prepare('UPDATE wallets SET balance_cents=? WHERE user_id=?')->execute([$target_cents,$id]);
+   $pdo->prepare("INSERT INTO wallet_transactions(user_id,type,amount_cents,reference_type,reference_id) VALUES(?,'adjustment',?,'admin_balance_set',?)")->execute([$id,$delta,$adminId]);
   }
   $pdo->commit();
-  out(['ok'=>true,'balance_cents'=>0,'message'=>$action==='clear_debt'?'Saldo devedor zerado':'Carteira zerada']);
+  $message=$action==='clear_debt'?'Saldo devedor zerado':($action==='set_wallet'?'Carteira atualizada':'Carteira zerada');
+  out(['ok'=>true,'balance_cents'=>$target_cents,'message'=>$message]);
  }catch(Throwable $e){
   if($pdo->inTransaction())$pdo->rollBack();
   out(['error'=>'Não foi possível ajustar o saldo do cliente'],500);
