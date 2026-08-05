@@ -269,13 +269,20 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&($_GET['action']??'')===''){
   $prepost=correiosCreatePrepost($config,$payload);
   $prepostId=$prepost['id'];
   $tracking=$prepost['tracking_code'];
+  // Guarda a resposta bruta dos Correios na criação para diagnosticar, se o
+  // rótulo não sair do status "Pendente" (ver PPN-288), o que exatamente eles
+  // devolveram (ex.: algum campo de situação de pagamento) sem precisar
+  // reproduzir o problema de novo.
+  $shipmentData['correios_creation_response']=$prepost['raw']??null;
   // A geração do PDF em si é assíncrona e pode levar bem mais que alguns
   // segundos; este pedido só reserva o recibo. O PDF é buscado depois, por
   // sondagens curtas do navegador (action=poll), para esta requisição de
   // criação não ficar presa esperando os Correios e estourar o tempo limite
   // do proxy/gateway em produção (era a causa do 504 observado).
   $stage='solicitação do rótulo assíncrono aos Correios';
-  $receipt=correiosRequestLabelReceipt($config,$prepostId);
+  $labelReceiptRaw=null;
+  $receipt=correiosRequestLabelReceipt($config,$prepostId,$labelReceiptRaw);
+  $shipmentData['correios_label_receipt_response']=$labelReceiptRaw;
  }catch(Throwable $e){
   if($prepostId!==''){
    try{correiosCancelPrepost($config,$prepostId);}catch(Throwable $ignored){}

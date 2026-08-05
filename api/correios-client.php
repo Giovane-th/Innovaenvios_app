@@ -68,7 +68,7 @@ function correiosRequest(array $config,string $method,string $path,?array $json=
  return ['status'=>$code,'content_type'=>$contentType,'body'=>$body,'json'=>json_decode($body,true)];
 }
 
-function correiosRequestLabelReceipt(array $config,string $prepostId):string{
+function correiosRequestLabelReceipt(array $config,string $prepostId,?array &$rawResponse=null):string{
  // GET /prepostagem/v1/prepostagens/{id} responde 405 (Method Not Allowed) nesta
  // conta/contrato — não existe forma de consultar o status antes de pedir o rótulo.
  // A emissão é assíncrona: este POST só devolve um recibo; o PDF em si é buscado
@@ -85,6 +85,7 @@ function correiosRequestLabelReceipt(array $config,string $prepostId):string{
    $request=correiosRequest($config,'POST','prepostagens/rotulo/assincrono/pdf',[
     'idsPrePostagem'=>[$prepostId],'tipoRotulo'=>'P','formatoRotulo'=>'ET'
    ],['application/json']);
+   $rawResponse=is_array($request['json'])?$request['json']:null;
    $receipt=correiosNestedValue($request['json'],['idrecibo','recibo','id']);
    if($receipt==='')throw new RuntimeException('Os Correios não retornaram o recibo de geração do rótulo');
    return $receipt;
@@ -193,7 +194,7 @@ function correiosBuildPrepostPayload(array $config,array $auth,array $user,array
   'destinatario'=>['nome'=>(string)$shipment['recipient_name'],'codigo'=>'','indicadorMalote'=>'N','dddTelefone'=>'','ddiTelefone'=>'','telefone'=>'','dddCelular'=>substr($recipientPhone,0,2),'ddiCelular'=>'55','celular'=>substr($recipientPhone,2),'email'=>(string)($shipment['recipient_email']??''),'cpfCnpj'=>(string)$shipment['recipient_document'],'documentoEstrangeiro'=>'','obs'=>'','endereco'=>['cep'=>(string)$shipment['destination_zip'],'logradouro'=>(string)$shipment['recipient_street'],'numero'=>(string)$shipment['recipient_number'],'complemento'=>(string)($shipment['recipient_complement']??''),'bairro'=>(string)$shipment['recipient_neighborhood'],'cidade'=>(string)$shipment['recipient_city'],'uf'=>(string)$shipment['recipient_state'],'regiao'=>'']],
   'codigoServico'=>$serviceCode,'numeroCartaoPostagem'=>(string)$config['correios_cartao_postagem'],'listaServicoAdicional'=>[],'itensDeclaracaoConteudo'=>$items,
   'pesoInformado'=>(string)(int)$shipment['package_weight_grams'],'codigoFormatoObjetoInformado'=>(string)($shipment['format_code']??'1'),'alturaInformada'=>(string)$shipment['package_height_cm'],'larguraInformada'=>(string)$shipment['package_width_cm'],'comprimentoInformado'=>(string)$shipment['package_length_cm'],'diametroInformado'=>'0',
-  'cienteObjetoNaoProibido'=>'1','solicitarColeta'=>'N','dataPrevistaPostagem'=>date('d/m/Y'),'modalidadePagamento'=>'1','logisticaReversa'=>'N','pedidoExternoOrigem'=>(string)($shipment['external_id']??'')
+  'cienteObjetoNaoProibido'=>'1','solicitarColeta'=>'N','dataPrevistaPostagem'=>date('d/m/Y'),'modalidadePagamento'=>trim((string)($config['correios_modalidade_pagamento']??''))?:'1','logisticaReversa'=>'N','pedidoExternoOrigem'=>(string)($shipment['external_id']??'')
  ];
 }
 function correiosCancelPrepost(array $config,string $prepostId):void{
