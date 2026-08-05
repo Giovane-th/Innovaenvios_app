@@ -15,6 +15,36 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
 if($_SERVER['REQUEST_METHOD']!=='POST')out(['error'=>'Método não permitido'],405);
 requireSameOrigin($config);
 $d=body();$id=(int)($d['user_id']??0);$action=(string)($d['action']??'');
+
+if(in_array($action,['reset_customers','reset_shipments','reset_simulations'],true)){
+ try{
+  $pdo->beginTransaction();
+  if($action==='reset_simulations'){
+   $pdo->exec('DELETE FROM shipping_simulations');
+  }
+  if($action==='reset_shipments'){
+   $pdo->exec('DELETE FROM shipment_emissions');
+   $pdo->exec('DELETE FROM shipments');
+  }
+  if($action==='reset_customers'){
+   $pdo->exec("DELETE FROM shipment_emissions WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM shipments WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM shipping_simulations WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM wallet_transactions WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM payment_orders WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM user_shipping_profiles WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM wallets WHERE user_id IN (SELECT id FROM users WHERE role='customer')");
+   $pdo->exec("DELETE FROM users WHERE role='customer'");
+  }
+  $pdo->commit();
+  out(['ok'=>true,'message'=>'Dados zerados com sucesso']);
+ }catch(Throwable $e){
+  if($pdo->inTransaction())$pdo->rollBack();
+  error_log('Admin reset ['.$action.']: '.$e->getMessage());
+  out(['error'=>'Não foi possível zerar os dados'],500);
+ }
+}
+
 if($id<1)out(['error'=>'Cliente inválido'],422);
 $q=$pdo->prepare('SELECT id,role,status,allow_postpaid FROM users WHERE id=?');$q->execute([$id]);$target=$q->fetch();
 if(!$target)out(['error'=>'Cliente não encontrado'],404);
