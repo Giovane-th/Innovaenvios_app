@@ -1,0 +1,209 @@
+{
+  "_meta": {
+    "project": "InnovaEnvios - Painel de Gestão Logística & Integração Correios CWS",
+    "version": "2.0.0",
+    "updated_at": "2026-07-15",
+    "locale": "pt-BR",
+    "currency": "BRL (R$)"
+  },
+  "persona_and_strategy": {
+    "designer_identity": "E1: Anti-AI Designer",
+    "vibe": "Performance Pro + Swiss Logistics High-Utility. Not generic SaaS blue. A distinctive Brazilian postal logistics cockpit that balances deep navy-slate (#0b1329), precision postal cobalt (#1d4ed8), Correios industrial gold/amber (#f59e0b / #eab308), crisp tactical cards, high-contrast badges, and real workflow utility.",
+    "emotional_goal": "Transmit reliability, contract security, real-time dispatch confidence, and instant operational velocity for Brazilian e-commerce merchants integrating Correios CWS."
+  },
+  "theme": {
+    "mode": "light_with_dark_slate_command_accents",
+    "theme_toggle": true,
+    "background": {
+      "light": "#f8fafc",
+      "sidebar_and_headers": "#0f172a",
+      "card_surface_light": "#ffffff",
+      "card_surface_subtle": "#f1f5f9"
+    }
+  },
+  "typography": {
+    "google_fonts_to_import": [
+      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    ],
+    "headings": {
+      "font_family": "Plus Jakarta Sans, sans-serif",
+      "h1": "text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white",
+      "h2": "text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100",
+      "h3": "text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100",
+      "h4": "text-sm sm:text-base font-semibold uppercase tracking-wider text-slate-500"
+    },
+    "body": {
+      "font_family": "Plus Jakarta Sans, sans-serif",
+      "size": "text-sm sm:text-base",
+      "line_height": "leading-relaxed text-slate-600 dark:text-slate-300"
+    },
+    "code_and_tracking_ids": {
+      "font_family": "JetBrains Mono, monospace",
+      "style": "font-mono font-medium tracking-wide uppercase"
+    }
+  },
+  "colors": {
+    "brand_primary": {
+      "name": "Postal Deep Cobalt",
+      "hex": "#1d4ed8",
+      "tailwind": "bg-blue-700 hover:bg-blue-800 text-white"
+    },
+    "brand_accent_correios": {
+      "name": "Correios Industrial Amber",
+      "hex": "#f59e0b",
+      "tailwind": "bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold"
+    },
+    "brand_dark_anchor": {
+      "name": "Obsidian Slate",
+      "hex": "#0f172a",
+      "tailwind": "bg-slate-900 text-slate-100"
+    },
+    "status_colors": {
+      "connected": {
+        "badge": "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+        "dot": "bg-emerald-500"
+      },
+      "disconnected_or_pending": {
+        "badge": "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+        "dot": "bg-amber-500"
+      },
+      "service_sedex": {
+        "badge": "bg-blue-50 text-blue-700 border border-blue-200 font-bold tracking-wider",
+        "tag": "SEDEX"
+      },
+      "service_pac": {
+        "badge": "bg-amber-50 text-amber-800 border border-amber-300 font-bold tracking-wider",
+        "tag": "PAC"
+      },
+      "service_mini_envios": {
+        "badge": "bg-purple-50 text-purple-700 border border-purple-200 font-bold tracking-wider",
+        "tag": "MINI ENVIOS"
+      }
+    }
+  },
+  "layout_and_navigation": {
+    "structure": "Sidebar + Sticky Header + Bento Dashboard Content Layout",
+    "sidebar": {
+      "width": "w-64 md:w-72",
+      "bg": "bg-slate-950 text-slate-200 border-r border-slate-800",
+      "brand_header": "InnovaEnvios with active Correios CWS partner indicator",
+      "nav_items": [
+        { "id": "dashboard", "label": "Visão Geral", "icon": "LayoutDashboard", "data_testid": "nav-dashboard-link" },
+        { "id": "calculo-frete", "label": "Cálculo de Frete", "icon": "Calculator", "data_testid": "nav-calculator-link" },
+        { "id": "rastreamento", "label": "Rastreamento", "icon": "Search", "data_testid": "nav-tracking-link" },
+        { "id": "pre-postagem", "label": "Nova Pré-Postagem & Etiqueta", "icon": "FilePlus2", "data_testid": "nav-prepost-new-link" },
+        { "id": "lista-postagens", "label": "Lista de Pré-Postagens", "icon": "PackageCheck", "data_testid": "nav-prepost-list-link" },
+        { "id": "config-contrato", "label": "Integração Contrato CWS", "icon": "KeyRound", "data_testid": "nav-contract-settings-link" }
+      ]
+    },
+    "header": {
+      "classes": "sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between",
+      "components": [
+        "Status do Contrato Correios (pill ativo/aviso com credenciais CWS)",
+        "Botão de Ação Rápida: 'Calcular Frete' e 'Emitir Etiqueta'",
+        "Ambiente selector: Homologação (cwshom) vs Produção (cws)",
+        "Indicador de Saldo / Cartão de Postagem ativo"
+      ]
+    }
+  },
+  "key_features_specification": {
+    "1_conexao_contrato_correios": {
+      "purpose": "Resolver diretamente a dor do usuário ('não consegui ainda integrar api do meu contrato com os correio').",
+      "credential_fields": [
+        { "key": "usuario_cws", "label": "Usuário CWS (Meu Correios)", "placeholder": "ex: usuario.cws", "data_testid": "cws-username-input" },
+        { "key": "codigo_acesso", "label": "Código de Acesso / Senha API CWS", "placeholder": "Gerado no portal CWS dos Correios", "type": "password", "data_testid": "cws-access-code-input" },
+        { "key": "numero_contrato", "label": "Número do Contrato", "placeholder": "ex: 9912345678", "data_testid": "cws-contract-number-input" },
+        { "key": "cartao_postagem", "label": "Cartão de Postagem Ativo", "placeholder": "ex: 0076543210", "data_testid": "cws-posting-card-input" },
+        { "key": "ambiente", "label": "Ambiente da API", "options": ["Produção (cws.correios.com.br)", "Homologação (cwshom.correios.com.br)"], "data_testid": "cws-environment-select" }
+      ],
+      "actions": [
+        { "label": "Testar Conexão e Gerar Token", "action": "test_and_save", "data_testid": "cws-test-connection-button" },
+        { "label": "Usar Credenciais de Teste / Demo Innova", "action": "load_demo_contract", "data_testid": "cws-load-demo-button" }
+      ],
+      "diagnostic_card": "Mostra status de autorização, validade do token (Bearer CWS), serviços liberados no contrato (SEDEX Contrato 03220, PAC Contrato 03298, Mini Envios 04227)."
+    },
+    "2_calculo_frete": {
+      "title": "Cálculo de Frete Correios (Preço e Prazo)",
+      "inputs": {
+        "cep_origem": { "mask": "00000-000", "default": "01001-000", "label": "CEP de Origem (Remetente)", "data_testid": "freight-origin-cep" },
+        "cep_destino": { "mask": "00000-000", "default": "20040-000", "label": "CEP de Destino (Destinatário)", "data_testid": "freight-dest-cep" },
+        "peso_kg": { "label": "Peso (kg)", "default": 0.5, "data_testid": "freight-weight-input" },
+        "dimensoes": {
+          "comprimento": { "label": "Comprimento (cm)", "default": 20, "data_testid": "freight-length-input" },
+          "largura": { "label": "Largura (cm)", "default": 15, "data_testid": "freight-width-input" },
+          "altura": { "label": "Altura (cm)", "default": 10, "data_testid": "freight-height-input" }
+        },
+        "tipo_objeto": ["Caixa / Pacote", "Envelope", "Rolo / Prisma"],
+        "servicos_adicionais": ["Aviso de Recebimento (AR)", "Mão Própria (MP)", "Valor Declarado"]
+      },
+      "results_comparison_table": {
+        "columns": ["Serviço", "Prazo Estimado", "Preço de Balcão", "Preço c/ Contrato InnovaEnvios", "Economia", "Ação Rápida"],
+        "features": [
+          "Destaque comparativo de desconto de contrato (ex: SEDEX de R$ 38,90 por R$ 26,40)",
+          "Data prevista de entrega calculada em dias úteis",
+          "Botão 'Gerar Pré-Postagem' com este frete pré-preenchido",
+          "Badge de 'Mais Rápido' e 'Melhor Custo-Benefício'"
+        ]
+      }
+    },
+    "3_rastreamento": {
+      "title": "Rastreamento de Objetos (SRO Correios)",
+      "inputs": {
+        "codigo_rastreio": { "placeholder": "ex: AA123456789BR, NL987654321BR", "data_testid": "tracking-code-input" },
+        "quick_test_codes": ["NL123456789BR", "QC887654321BR", "BR998877665BR"]
+      },
+      "display": {
+        "timeline_order": "Do mais recente ao mais antigo (newest first)",
+        "event_attributes": ["Data e Hora", "Status Principal", "Local de Origem e Destino", "Tipo de Movimentação", "Ícone representativo (caminhão, centro de triagem, entregue, aguardando postagem)"],
+        "progress_stepper": "Visual bar: Pré-postado -> Postado -> Em Trânsito -> Saiu para Entrega -> Entregue ao Destinatário"
+      }
+    },
+    "4_pre_postagem_e_etiqueta": {
+      "title": "Nova Pré-Postagem & Emissão de Etiqueta (PDF/ZPL)",
+      "fields": {
+        "remetente": { "nome": "InnovaEnvios Logística", "cpf_cnpj": "42.123.456/0001-90", "logradouro": "Av. Paulista, 1000", "cidade": "São Paulo", "uf": "SP", "cep": "01310-100" },
+        "destinatario": { "nome": "", "cpf_cnpj": "", "logradouro": "", "numero": "", "bairro": "", "cidade": "", "uf": "", "cep": "" },
+        "declaracao_conteudo": {
+          "obrigatoria": true,
+          "itens": [{ "descricao": "Camiseta Algodão", "quantidade": 1, "valor": 79.90 }]
+        },
+        "servico": ["SEDEX (03220)", "PAC (03298)", "Mini Envios (04227)"]
+      },
+      "outputs": {
+        "etiqueta_modal": "Visualização prévia da etiqueta oficial padrão Correios com código de barras Code 128 / Datamatrix, chancela SEDEX/PAC, CEPNet e QR Code de rastreio",
+        "download_formats": ["PDF A4 (com Declaração de Conteúdo)", "PDF Térmica 100x150mm", "Simulação de Download Assíncrono"]
+      }
+    },
+    "5_lista_pre_postagens": {
+      "title": "Gestão de Pré-Postagens & Lotes",
+      "filters": ["Todas", "Criadas (Aguardando Postagem)", "Postadas na Agência", "Em Trânsito", "Canceladas"],
+      "table_columns": ["Código do Objeto", "Destinatário", "Serviço", "Data Criação", "Valor Frete", "Status", "Ações (Imprimir Etiqueta, Rastrear, Cancelar)"],
+      "bulk_actions": ["Imprimir Etiquetas Selecionadas (Lote)", "Exportar PLP (Pré-Lista de Postagem)"]
+    }
+  },
+  "visual_enhancers": {
+    "subtle_grid": "Grid pontilhado sutil no fundo das seções para dar atmosfera de blueprint de engenharia logística.",
+    "badges": "Pills com cantos arredondados (rounded-full) e tipografia monospaçada para códigos de rastreio e CEPs.",
+    "tactile_tables": "Tabelas com zebra suave, bordas nítidas de 1px (#e2e8f0), padding generoso e botões de ação com feedback de hover claro."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwyfHx3YXJlaG91c2UlMjBwYWNrYWdlJTIwZGVsaXZlcnklMjBsb2dpc3RpY3N8ZW58MHx8fHwxNzg5NTg2MjUwfDA&ixlib=rb-4.1.0&q=85",
+      "category": "hero_or_overview_banner",
+      "description": "Centro logístico e distribuição de caixas e encomendas amarelas e brancas, alinhado à identidade dos Correios."
+    },
+    {
+      "url": "https://images.pexels.com/photos/5025635/pexels-photo-5025635.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "courier_and_dispatch",
+      "description": "Equipe de logística e entregadores organizando encomendas para despacho expresso."
+    }
+  ],
+  "instructions_to_main_agent": [
+    "1. Desenvolva uma aplicação React completa, interativa e fluida em Português do Brasil (pt-BR) para o InnovaEnvios.",
+    "2. Não utilize placeholders genéricos ou botões mortos. Todos os botões ('Calcular Frete', 'Rastrear', 'Gerar Pré-Postagem', 'Salvar Contrato', 'Baixar Etiqueta') devem ter feedback de estado, toasts informativos e dados simulados e dinâmicos de alta fidelidade.",
+    "3. Crie um gerador visual de Etiqueta dos Correios (modal interativo com chancela oficial dos Correios, Código de Rastreio gerado, Códigos de Barras estilizados, dados do destinatário e remetente, e botão para imprimir/download em PDF ou visualização direta).",
+    "4. Forneça o módulo 'Integração Contrato CWS' com explicação passo a passo de como obter o Token CWS e Cartão de Postagem no portal dos Correios, com botão 'Preencher com dados de Homologação/Exemplo' para que o usuário teste imediatamente o cálculo com contrato.",
+    "5. Garanta que todos os elementos interativos tenham atributos 'data-testid' conforme especificado.",
+    "6. Utilize a paleta estabelecida: Deep Slate (#0f172a), Azul Correios (#1d4ed8), Amarelo Ouro (#f59e0b) e fundo neutro limpo (#f8fafc)."
+  ]
+}
