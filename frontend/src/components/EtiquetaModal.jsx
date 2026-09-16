@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download, Truck } from "lucide-react";
 import { PREPOST } from "@/constants/testIds";
@@ -35,6 +35,7 @@ export const EtiquetaModal = ({ prepostagem, open, onOpenChange }) => {
       >
         <DialogHeader className="border-b border-border px-5 py-3">
           <DialogTitle className="text-base">Etiqueta de Postagem — {p.servico_nome}</DialogTitle>
+          <DialogDescription className="text-xs">Objeto {p.codigo_objeto} — pronta para impressão.</DialogDescription>
         </DialogHeader>
 
         <div id="etiqueta-print" className="p-5">

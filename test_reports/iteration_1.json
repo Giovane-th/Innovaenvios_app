@@ -1,0 +1,38 @@
+{
+  "summary": "First-run e2e testing of InnovaEnvios (Correios CWS integration). All 11 backend pytest tests passed and all 6 frontend user flows worked end-to-end via Playwright (dashboard, freight calc, tracking, prepost creation + label modal, list, contract settings).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "EtiquetaModal / DialogContent", "issues": ["Radix warning: Missing `Description` or `aria-describedby={undefined}` for DialogContent (a11y). Add a DialogDescription or aria-describedby to silence and improve screen-reader support."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_correios.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(minor) Add DialogDescription (or aria-describedby) to EtiquetaModal DialogContent to fix Radix a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 268-274: `etapa_atual` computed twice; the intermediate `etapa_atual = min(n_eventos, len(etapas)) - 0` is dead code — remove.",
+    "server.py: no MongoDB _id leakage — good (uses projections / string _id singleton).",
+    "server.py stores full `codigo_acesso` in Mongo in plaintext (only masked on read). For production, consider hashing/encryption at rest — acceptable for MVP since documented.",
+    "server.py:462 uses `os.environ.get('CORS_ORIGINS','*').split(',')` combined with `allow_credentials=True`. Wildcard + credentials is invalid per CORS spec; will fail if browser needs credentials. Not exercised here (no auth) so no impact now.",
+    "server.py: `@app.on_event('shutdown')` is deprecated in FastAPI; use lifespan handlers.",
+    "Frontend Frete.jsx: no error UI when API fails beyond a toast — acceptable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_correios.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (6/6 flows)"},
+  "test_credentials": "N/A — app has no auth; used in-app 'Usar dados de exemplo' on Contrato page.",
+  "seed_data_creation": "Created 2 prepostagens via UI/tests (destinatarios: 'TEST_Destinatario', 'TEST Cliente Final'); one is cancelled by backend test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest suite is at /app/backend/tests/test_correios.py — reuse it. Frontend flows fully data-testid driven per /app/frontend/src/constants/testIds/correios.js. Demo mode is default; real Correios auth path (obter_token) was not exercised because homologation credentials are not confirmed."
+}

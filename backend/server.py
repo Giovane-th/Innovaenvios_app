@@ -265,7 +265,6 @@ def simular_rastreamento(codigo: str) -> dict:
     eventos.reverse()  # mais recente primeiro
     entregue = eventos[0]["tipo"] == "BDE"
     etapas = ["Pré-postado", "Postado", "Em Trânsito", "Saiu para Entrega", "Entregue"]
-    etapa_atual = min(n_eventos, len(etapas)) - 0
     return {
         "codigo": codigo,
         "entregue": entregue,
