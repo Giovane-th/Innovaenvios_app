@@ -3,9 +3,11 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, Search, FilePlus2, PackageCheck, KeyRound,
   Truck, Moon, Sun, Menu, X, Zap,
+  LogOut, UserCircle,
 } from "lucide-react";
 import { NAV } from "@/constants/testIds";
 import { useSettings } from "@/context/SettingsContext";
+import { useAuth } from "@/context/AuthContext";
 
 const links = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard, tid: NAV.dashboard, end: true },
@@ -35,6 +37,7 @@ const ConnectionPill = ({ settings }) => {
 
 export const Layout = () => {
   const { settings } = useSettings();
+  const { user, logout } = useAuth();
   const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -68,7 +71,7 @@ export const Layout = () => {
           <button className="md:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {links.map((l) => (
+          {links.filter((l) => l.to !== "/contrato" || user?.role === "admin").map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
@@ -119,6 +122,15 @@ export const Layout = () => {
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
+            <div className="hidden items-center gap-2 pl-2 sm:flex">
+              {user?.foto ? <img src={user.foto} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" /> : <UserCircle className="h-8 w-8 text-slate-400" />}
+              <div className="max-w-32 leading-tight"><p className="truncate text-xs font-bold">{user?.nome}</p><p className="truncate text-[10px] text-muted-foreground">{user?.role === "admin" ? "Administrador" : "Cliente"}</p></div>
+            </div>
+            <button
+              onClick={() => { logout(); navigate("/login"); }}
+              title="Sair"
+              className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-rose-600"
+            ><LogOut className="h-4 w-4" /></button>
           </div>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">

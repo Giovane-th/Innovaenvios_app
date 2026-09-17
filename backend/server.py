@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,8 +8,10 @@ import base64
 import random
 import hashlib
 import logging
+import jwt
+import bcrypt
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Annotated, Any
 from pydantic.functional_validators import BeforeValidator
 import uuid
@@ -98,6 +100,87 @@ class PrePostagemRequest(BaseModel):
     altura: float = 10
     itens: List[ItemDeclaracao] = []
     valor_frete: float = 0.0
+
+
+class RegisterRequest(BaseModel):
+    nome: str
+    email: EmailStr
+    senha: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    senha: str
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+JWT_ALGORITHM = "HS256"
+JWT_TTL_DAYS = 7
+
+
+def normalize_email(value: str) -> str:
+    return value.strip().lower()
+
+
+def public_user(doc: dict) -> dict:
+    return {
+        "id": str(doc.get("_id", doc.get("id", ""))),
+        "nome": doc.get("nome", ""),
+        "email": doc.get("email", ""),
+        "foto": doc.get("foto", ""),
+        "role": doc.get("role", "cliente"),
+    }
+
+
+def admin_emails() -> set[str]:
+    return {
+        normalize_email(email)
+        for email in os.environ.get("ADMIN_EMAILS", "").split(",")
+        if email.strip()
+    }
+
+
+def issue_access_token(user: dict) -> str:
+    if not JWT_SECRET or len(JWT_SECRET) < 32:
+        raise HTTPException(status_code=503, detail="JWT_SECRET não configurado com segurança no servidor.")
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {
+            "sub": str(user["_id"]),
+            "email": user["email"],
+            "role": user.get("role", "cliente"),
+            "iat": now,
+            "exp": now + timedelta(days=JWT_TTL_DAYS),
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
+
+
+async def current_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Autenticação necessária.")
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Sessão expirada. Entre novamente.")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Sessão inválida.")
+    user = await db.users.find_one({"_id": payload.get("sub"), "ativo": {"$ne": False}})
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado ou desativado.")
+    return user
+
+
+async def admin_user(user: dict = Depends(current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso exclusivo da administração.")
+    return user
 
 
 # ----------------------------------------------------------------------------
@@ -282,9 +365,98 @@ async def root():
     return {"message": "InnovaEnvios API - Integração Correios", "status": "online"}
 
 
+@api_router.post("/auth/register")
+async def register(req: RegisterRequest):
+    email = normalize_email(req.email)
+    nome = req.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe nome e e-mail válidos.")
+    if len(req.senha) < 8 or len(req.senha.encode()) > 72:
+        raise HTTPException(status_code=400, detail="A senha deve ter entre 8 e 72 caracteres.")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="Já existe uma conta com este e-mail.")
+    role = "admin" if email in admin_emails() else "cliente"
+    user = {
+        "_id": str(uuid.uuid4()),
+        "nome": nome,
+        "email": email,
+        "password_hash": bcrypt.hashpw(req.senha.encode(), bcrypt.gensalt()).decode(),
+        "google_sub": None,
+        "role": role,
+        "ativo": True,
+        "created_at": now_iso(),
+    }
+    await db.users.insert_one(user)
+    return {"access_token": issue_access_token(user), "token_type": "bearer", "user": public_user(user)}
+
+
+@api_router.post("/auth/login")
+async def login(req: LoginRequest):
+    email = normalize_email(req.email)
+    user = await db.users.find_one({"email": email, "ativo": {"$ne": False}})
+    valid = bool(
+        user
+        and user.get("password_hash")
+        and bcrypt.checkpw(req.senha.encode(), user["password_hash"].encode())
+    )
+    if not valid:
+        raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
+    return {"access_token": issue_access_token(user), "token_type": "bearer", "user": public_user(user)}
+
+
+@api_router.post("/auth/google")
+async def google_login(req: GoogleLoginRequest):
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    if not client_id:
+        raise HTTPException(status_code=503, detail="Login Google ainda não configurado.")
+    async with httpx.AsyncClient(timeout=10) as http:
+        response = await http.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": req.credential})
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Credencial Google inválida.")
+    info = response.json()
+    if info.get("aud") != client_id or info.get("email_verified") not in (True, "true"):
+        raise HTTPException(status_code=401, detail="Conta Google não autorizada para este aplicativo.")
+    email = normalize_email(info.get("email", ""))
+    google_sub = info.get("sub")
+    user = await db.users.find_one({"$or": [{"google_sub": google_sub}, {"email": email}]})
+    if user:
+        if user.get("ativo") is False:
+            raise HTTPException(status_code=403, detail="Esta conta está desativada.")
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"google_sub": google_sub, "foto": info.get("picture", user.get("foto", "")), "last_login_at": now_iso()}},
+        )
+        user = await db.users.find_one({"_id": user["_id"]})
+    else:
+        user = {
+            "_id": str(uuid.uuid4()),
+            "nome": info.get("name") or email.split("@")[0],
+            "email": email,
+            "password_hash": None,
+            "google_sub": google_sub,
+            "foto": info.get("picture", ""),
+            "role": "admin" if email in admin_emails() else "cliente",
+            "ativo": True,
+            "created_at": now_iso(),
+        }
+        await db.users.insert_one(user)
+    return {"access_token": issue_access_token(user), "token_type": "bearer", "user": public_user(user)}
+
+
+@api_router.get("/auth/me")
+async def me(user: dict = Depends(current_user)):
+    return {"user": public_user(user)}
+
+
 @api_router.get("/correios/settings")
-async def get_settings():
+async def get_settings(user: dict = Depends(current_user)):
     doc = await get_settings_doc()
+    if user.get("role") != "admin":
+        return {
+            "ambiente": doc.get("ambiente", "homologacao"),
+            "modo_demo": doc.get("modo_demo", True),
+            "conectado": is_connected(doc),
+        }
     return {
         "usuario": doc.get("usuario", ""),
         "codigo_acesso_mascarado": mask(doc.get("codigo_acesso", "")),
@@ -299,7 +471,7 @@ async def get_settings():
 
 
 @api_router.post("/correios/settings")
-async def save_settings(cfg: ContratoSettings):
+async def save_settings(cfg: ContratoSettings, user: dict = Depends(admin_user)):
     payload = cfg.model_dump()
     # não sobrescrever código de acesso com string vazia se já existir
     existing = await get_settings_doc()
@@ -313,7 +485,7 @@ async def save_settings(cfg: ContratoSettings):
 
 
 @api_router.post("/correios/test-connection")
-async def test_connection():
+async def test_connection(user: dict = Depends(admin_user)):
     doc = await get_settings_doc()
     servicos_liberados = [
         {"codigo": "03220", "nome": "SEDEX Contrato"},
@@ -345,7 +517,7 @@ async def test_connection():
 
 
 @api_router.post("/frete/calcular")
-async def calcular_frete(req: FreteRequest):
+async def calcular_frete(req: FreteRequest, user: dict = Depends(current_user)):
     doc = await get_settings_doc()
     resultados = simular_frete(req)
     return {
@@ -356,7 +528,7 @@ async def calcular_frete(req: FreteRequest):
 
 
 @api_router.get("/rastreamento/{codigo}")
-async def rastrear(codigo: str):
+async def rastrear(codigo: str, user: dict = Depends(current_user)):
     codigo = codigo.strip().upper()
     if len(codigo) != 13:
         raise HTTPException(status_code=400, detail="Código de rastreio deve ter 13 caracteres (ex: AA123456789BR).")
@@ -367,7 +539,7 @@ async def rastrear(codigo: str):
 
 
 @api_router.post("/prepostagem")
-async def criar_prepostagem(req: PrePostagemRequest):
+async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(current_user)):
     doc = await get_settings_doc()
     servico = SERVICOS.get(req.servico, SERVICOS["03220"])
     prefixo = {"03220": "OD", "03298": "OE", "04227": "OF"}.get(req.servico, "OD")
@@ -390,6 +562,7 @@ async def criar_prepostagem(req: PrePostagemRequest):
         "status": "CRIADA",
         "etiqueta_pronta": False,
         "simulado": not is_connected(doc),
+        "user_id": str(user["_id"]),
         "created_at": now_iso(),
     }
     await db.prepostagens.insert_one({**registro, "_id": registro["id"]})
@@ -397,8 +570,8 @@ async def criar_prepostagem(req: PrePostagemRequest):
 
 
 @api_router.get("/prepostagens")
-async def listar_prepostagens(status: Optional[str] = None):
-    query = {}
+async def listar_prepostagens(status: Optional[str] = None, user: dict = Depends(current_user)):
+    query = {} if user.get("role") == "admin" else {"user_id": str(user["_id"])}
     if status and status != "TODAS":
         query["status"] = status
     docs = await db.prepostagens.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -406,36 +579,46 @@ async def listar_prepostagens(status: Optional[str] = None):
 
 
 @api_router.get("/prepostagem/{id}")
-async def obter_prepostagem(id: str):
-    doc = await db.prepostagens.find_one({"id": id}, {"_id": 0})
+async def obter_prepostagem(id: str, user: dict = Depends(current_user)):
+    query = {"id": id}
+    if user.get("role") != "admin":
+        query["user_id"] = str(user["_id"])
+    doc = await db.prepostagens.find_one(query, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
     return doc
 
 
 @api_router.post("/prepostagem/{id}/etiqueta")
-async def gerar_etiqueta(id: str):
-    doc = await db.prepostagens.find_one({"id": id})
+async def gerar_etiqueta(id: str, user: dict = Depends(current_user)):
+    query = {"id": id}
+    if user.get("role") != "admin":
+        query["user_id"] = str(user["_id"])
+    doc = await db.prepostagens.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
-    await db.prepostagens.update_one({"id": id}, {"$set": {"etiqueta_pronta": True}})
+    await db.prepostagens.update_one(query, {"$set": {"etiqueta_pronta": True}})
     return {"id": id, "etiqueta_pronta": True, "codigo_objeto": doc["codigo_objeto"]}
 
 
 @api_router.post("/prepostagem/{id}/cancelar")
-async def cancelar_prepostagem(id: str):
-    doc = await db.prepostagens.find_one({"id": id})
+async def cancelar_prepostagem(id: str, user: dict = Depends(current_user)):
+    query = {"id": id}
+    if user.get("role") != "admin":
+        query["user_id"] = str(user["_id"])
+    doc = await db.prepostagens.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
     if doc.get("status") == "POSTADA":
         raise HTTPException(status_code=400, detail="Objeto já postado não pode ser cancelado.")
-    await db.prepostagens.update_one({"id": id}, {"$set": {"status": "CANCELADA"}})
+    await db.prepostagens.update_one(query, {"$set": {"status": "CANCELADA"}})
     return {"id": id, "status": "CANCELADA"}
 
 
 @api_router.get("/dashboard/stats")
-async def dashboard_stats():
-    docs = await db.prepostagens.find({}, {"_id": 0}).to_list(1000)
+async def dashboard_stats(user: dict = Depends(current_user)):
+    query = {} if user.get("role") == "admin" else {"user_id": str(user["_id"])}
+    docs = await db.prepostagens.find(query, {"_id": 0}).to_list(1000)
     total = len(docs)
     criadas = sum(1 for d in docs if d.get("status") == "CRIADA")
     canceladas = sum(1 for d in docs if d.get("status") == "CANCELADA")
@@ -462,6 +645,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def ensure_indexes():
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index(
+        "google_sub",
+        unique=True,
+        partialFilterExpression={"google_sub": {"$type": "string"}},
+    )
+    await db.prepostagens.create_index([("user_id", 1), ("created_at", -1)])
 
 
 @app.on_event("shutdown")
