@@ -652,23 +652,29 @@ async def request_official_label(doc: dict, settings: dict) -> bytes:
     }
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json, application/pdf"}
     async with httpx.AsyncClient(timeout=60.0) as client_http:
-        response = await client_http.post(
-            f"{host}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
-            json=request_body,
-            headers=headers,
-        )
-        if response.status_code >= 400:
-            raise correios_error(response, "a geração do rótulo")
-        if response.content.startswith(b"%PDF"):
-            return response.content
-        result = response.json()
-        direct_pdf = extract_pdf(result)
-        if direct_pdf:
-            return direct_pdf
-        receipt = find_value(result, {"idrecibo", "recibo", "idsolicitacao", "id"})
+        receipt = doc.get("etiqueta_recibo")
         if not receipt:
-            raise HTTPException(status_code=502, detail=f"Correios não devolveu o recibo do rótulo: {result}")
-        for _ in range(12):
+            response = await client_http.post(
+                f"{host}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
+                json=request_body,
+                headers=headers,
+            )
+            if response.status_code >= 400:
+                raise correios_error(response, "a geração do rótulo")
+            if response.content.startswith(b"%PDF"):
+                return response.content
+            result = response.json()
+            direct_pdf = extract_pdf(result)
+            if direct_pdf:
+                return direct_pdf
+            receipt = find_value(result, {"idrecibo", "recibo", "idsolicitacao", "id"})
+            if not receipt:
+                raise HTTPException(status_code=502, detail=f"Correios não devolveu o recibo do rótulo: {result}")
+            receipt = str(receipt)
+            await db.prepostagens.update_one({"id": doc["id"]}, {"$set": {"etiqueta_recibo": receipt}})
+        # O processamento do rótulo é assíncrono e pode levar dezenas de segundos.
+        # Mantemos a requisição aguardando para que o usuário não precise repetir a emissão.
+        for _ in range(45):
             await asyncio.sleep(1)
             download = await client_http.get(
                 f"{host}/prepostagem/v1/prepostagens/rotulo/download/assincrono/{receipt}",
@@ -687,7 +693,20 @@ async def request_official_label(doc: dict, settings: dict) -> bytes:
             pdf = extract_pdf(result)
             if pdf:
                 return pdf
-        raise HTTPException(status_code=504, detail="O rótulo ainda está sendo processado pelos Correios. Tente novamente em alguns segundos.")
+        raise HTTPException(status_code=504, detail="Os Correios demoraram mais de 45 segundos para concluir o rótulo. A pré-postagem foi salva; abra-a em Pré-Postagens para tentar baixar novamente.")
+
+
+async def salvar_contato(user_id: str, tipo: str, endereco: Endereco):
+    data = endereco.model_dump()
+    fingerprint = hashlib.sha256(
+        f"{user_id}|{tipo}|{only_digits(endereco.cpf_cnpj)}|{only_digits(endereco.cep)}|{endereco.nome.strip().lower()}".encode()
+    ).hexdigest()
+    await db.contatos.update_one(
+        {"fingerprint": fingerprint},
+        {"$set": {**data, "tipo": tipo, "user_id": user_id, "fingerprint": fingerprint, "updated_at": now_iso()},
+         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now_iso()}},
+        upsert=True,
+    )
 
 
 @api_router.post("/prepostagem")
@@ -765,7 +784,45 @@ async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(approv
         "created_at": now_iso(),
     }
     await db.prepostagens.insert_one({**registro, "_id": registro["id"]})
+    await salvar_contato(str(user["_id"]), "remetente", req.remetente)
+    await salvar_contato(str(user["_id"]), "destinatario", req.destinatario)
     return registro
+
+
+@api_router.get("/cep/{cep}")
+async def consultar_cep(cep: str, user: dict = Depends(approved_user)):
+    numero = only_digits(cep)
+    if len(numero) != 8:
+        raise HTTPException(status_code=400, detail="Informe um CEP com 8 números.")
+    async with httpx.AsyncClient(timeout=10.0) as client_http:
+        response = await client_http.get(f"https://viacep.com.br/ws/{numero}/json/")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Não foi possível consultar o CEP.")
+    data = response.json()
+    if data.get("erro"):
+        raise HTTPException(status_code=404, detail="CEP não encontrado.")
+    return {
+        "cep": data.get("cep", cep), "logradouro": data.get("logradouro", ""),
+        "complemento": data.get("complemento", ""), "bairro": data.get("bairro", ""),
+        "cidade": data.get("localidade", ""), "uf": data.get("uf", ""),
+    }
+
+
+@api_router.get("/contatos")
+async def listar_contatos(tipo: Optional[str] = None, user: dict = Depends(approved_user)):
+    query = {"user_id": str(user["_id"])}
+    if tipo in ("remetente", "destinatario"):
+        query["tipo"] = tipo
+    docs = await db.contatos.find(query, {"_id": 0, "fingerprint": 0}).sort("updated_at", -1).to_list(1000)
+    return {"items": docs, "total": len(docs)}
+
+
+@api_router.delete("/contatos/{id}")
+async def excluir_contato(id: str, user: dict = Depends(approved_user)):
+    result = await db.contatos.delete_one({"id": id, "user_id": str(user["_id"])})
+    if not result.deleted_count:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    return {"sucesso": True}
 
 
 @api_router.get("/prepostagens")
@@ -886,6 +943,8 @@ async def ensure_indexes():
         partialFilterExpression={"google_sub": {"$type": "string"}},
     )
     await db.prepostagens.create_index([("user_id", 1), ("created_at", -1)])
+    await db.contatos.create_index("fingerprint", unique=True)
+    await db.contatos.create_index([("user_id", 1), ("tipo", 1), ("updated_at", -1)])
 
 
 @app.on_event("shutdown")

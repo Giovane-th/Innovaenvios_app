@@ -15,6 +15,7 @@ import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
 import Aguardando from "@/pages/Aguardando";
 import Usuarios from "@/pages/Usuarios";
+import Contatos from "@/pages/Contatos";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
               <Route path="/rastreamento" element={<Rastreamento />} />
               <Route path="/pre-postagem" element={<PrePostagem />} />
               <Route path="/postagens" element={<ListaPostagens />} />
+              <Route path="/contatos" element={<Contatos />} />
               <Route element={<ProtectedRoute admin />}>
                 <Route path="/contrato" element={<Contrato />} />
                 <Route path="/usuarios" element={<Usuarios />} />

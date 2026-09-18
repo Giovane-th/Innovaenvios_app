@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, Search, FilePlus2, PackageCheck, KeyRound,
   Truck, Moon, Sun, Menu, X, Zap,
-  LogOut, UserCircle, Users,
+  LogOut, UserCircle, Users, ContactRound,
 } from "lucide-react";
 import { NAV } from "@/constants/testIds";
 import { useSettings } from "@/context/SettingsContext";
@@ -15,6 +15,7 @@ const links = [
   { to: "/rastreamento", label: "Rastreamento", icon: Search, tid: NAV.tracking },
   { to: "/pre-postagem", label: "Nova Pré-Postagem", icon: FilePlus2, tid: NAV.prepostNew },
   { to: "/postagens", label: "Pré-Postagens", icon: PackageCheck, tid: NAV.prepostList },
+  { to: "/contatos", label: "Carteira de Clientes", icon: ContactRound },
   { to: "/contrato", label: "Integração Contrato CWS", icon: KeyRound, tid: NAV.contract },
   { to: "/usuarios", label: "Usuários", icon: Users },
 ];

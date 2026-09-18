@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api, brl, maskCep } from "@/lib/api";
@@ -46,6 +46,27 @@ export default function PrePostagem() {
   const [loading, setLoading] = useState(false);
   const [etiqueta, setEtiqueta] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [contatos, setContatos] = useState([]);
+
+  useEffect(() => {
+    api.get("/contatos").then(({ data }) => setContatos(data.items || [])).catch(() => {});
+  }, []);
+
+  const preencherCep = async (value, setter) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length !== 8) return;
+    try {
+      const { data } = await api.get(`/cep/${digits}`);
+      setter((current) => ({ ...current, ...data, numero: current.numero, complemento: current.complemento || data.complemento || "" }));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "CEP não encontrado.");
+    }
+  };
+
+  const selecionarContato = (id, setter) => {
+    const contato = contatos.find((item) => item.id === id);
+    if (contato) setter({ ...REM_DEFAULT, ...contato });
+  };
 
   const setR = (k, v) => setRemetente((s) => ({ ...s, [k]: v }));
   const setD = (k, v) => setDestinatario((s) => ({ ...s, [k]: v }));
@@ -74,7 +95,17 @@ export default function PrePostagem() {
         itens: itens.map((i) => ({ descricao: i.descricao, quantidade: Number(i.quantidade), valor: Number(i.valor) })),
         valor_frete: Number(prefill.valor_frete || 0),
       });
-      const { data: label } = await api.post(`/prepostagem/${data.id}/etiqueta`);
+      let label;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          ({ data: label } = await api.post(`/prepostagem/${data.id}/etiqueta`));
+          break;
+        } catch (error) {
+          if (error.response?.status !== 504 || attempt === 1) throw error;
+          toast.info("Os Correios ainda estão concluindo o rótulo. O sistema continuará aguardando automaticamente.");
+          await new Promise((resolve) => window.setTimeout(resolve, 3000));
+        }
+      }
       setEtiqueta({ ...data, ...label });
       setModalOpen(true);
       toast.success(`Pré-postagem criada! Objeto ${data.codigo_objeto}`);
@@ -104,6 +135,10 @@ export default function PrePostagem() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="space-y-4 p-6">
           <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Remetente</h2>
+          <select className="w-full rounded-lg border border-slate-300 bg-background px-3 py-2 text-sm" defaultValue="" onChange={(e) => selecionarContato(e.target.value, setRemetente)}>
+            <option value="">Selecionar remetente salvo</option>
+            {contatos.filter((c) => c.tipo === "remetente").map((c) => <option key={c.id} value={c.id}>{c.nome} — {c.cidade}/{c.uf}</option>)}
+          </select>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nome / Razão social *" value={remetente.nome} onChange={(e) => setR("nome", e.target.value)} />
             <Field label="CPF/CNPJ *" value={remetente.cpf_cnpj} onChange={(e) => setR("cpf_cnpj", e.target.value)} />
@@ -117,13 +152,17 @@ export default function PrePostagem() {
             <Field label="Cidade" value={remetente.cidade} onChange={(e) => setR("cidade", e.target.value)} />
             <div className="grid grid-cols-2 gap-2">
               <Field label="UF" value={remetente.uf} onChange={(e) => setR("uf", e.target.value.toUpperCase().slice(0,2))} />
-              <Field label="CEP" value={remetente.cep} onChange={(e) => setR("cep", maskCep(e.target.value))} />
+              <Field label="CEP" value={remetente.cep} onChange={(e) => { const value = maskCep(e.target.value); setR("cep", value); preencherCep(value, setRemetente); }} />
             </div>
           </div>
         </Card>
 
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Destinatário</h2>
+          <select className="w-full rounded-lg border border-slate-300 bg-background px-3 py-2 text-sm" defaultValue="" onChange={(e) => selecionarContato(e.target.value, setDestinatario)}>
+            <option value="">Selecionar destinatário salvo</option>
+            {contatos.filter((c) => c.tipo === "destinatario").map((c) => <option key={c.id} value={c.id}>{c.nome} — {c.cidade}/{c.uf}</option>)}
+          </select>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2"><Field label="Nome completo *" value={destinatario.nome} onChange={(e) => setD("nome", e.target.value)} testid="dest-nome" /></div>
             <Field label="CPF/CNPJ" value={destinatario.cpf_cnpj} onChange={(e) => setD("cpf_cnpj", e.target.value)} />
@@ -137,7 +176,7 @@ export default function PrePostagem() {
             <Field label="Cidade *" value={destinatario.cidade} onChange={(e) => setD("cidade", e.target.value)} testid="dest-cidade" />
             <div className="grid grid-cols-2 gap-2">
               <Field label="UF" value={destinatario.uf} onChange={(e) => setD("uf", e.target.value.toUpperCase().slice(0,2))} />
-              <Field label="CEP *" value={destinatario.cep} onChange={(e) => setD("cep", maskCep(e.target.value))} testid="dest-cep" className="font-mono" />
+              <Field label="CEP *" value={destinatario.cep} onChange={(e) => { const value = maskCep(e.target.value); setD("cep", value); preencherCep(value, setDestinatario); }} testid="dest-cep" className="font-mono" />
             </div>
           </div>
         </Card>
