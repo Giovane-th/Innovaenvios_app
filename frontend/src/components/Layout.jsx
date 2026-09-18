@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, Search, FilePlus2, PackageCheck, KeyRound,
   Truck, Moon, Sun, Menu, X, Zap,
-  LogOut, UserCircle,
+  LogOut, UserCircle, Users,
 } from "lucide-react";
 import { NAV } from "@/constants/testIds";
 import { useSettings } from "@/context/SettingsContext";
@@ -16,6 +16,7 @@ const links = [
   { to: "/pre-postagem", label: "Nova Pré-Postagem", icon: FilePlus2, tid: NAV.prepostNew },
   { to: "/postagens", label: "Pré-Postagens", icon: PackageCheck, tid: NAV.prepostList },
   { to: "/contrato", label: "Integração Contrato CWS", icon: KeyRound, tid: NAV.contract },
+  { to: "/usuarios", label: "Usuários", icon: Users },
 ];
 
 const ConnectionPill = ({ settings }) => {
@@ -71,7 +72,7 @@ export const Layout = () => {
           <button className="md:hidden" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {links.filter((l) => l.to !== "/contrato" || user?.role === "admin").map((l) => (
+          {links.filter((l) => !["/contrato", "/usuarios"].includes(l.to) || user?.role === "admin").map((l) => (
             <NavLink
               key={l.to}
               to={l.to}

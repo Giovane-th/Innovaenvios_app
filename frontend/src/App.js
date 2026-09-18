@@ -13,6 +13,8 @@ import ListaPostagens from "@/pages/ListaPostagens";
 import Contrato from "@/pages/Contrato";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
+import Aguardando from "@/pages/Aguardando";
+import Usuarios from "@/pages/Usuarios";
 
 function App() {
   return (
@@ -22,6 +24,9 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route element={<ProtectedRoute allowPending />}>
+            <Route path="/aguardando" element={<Aguardando />} />
+          </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<SettingsProvider><Layout /></SettingsProvider>}>
               <Route path="/" element={<Dashboard />} />
@@ -31,6 +36,7 @@ function App() {
               <Route path="/postagens" element={<ListaPostagens />} />
               <Route element={<ProtectedRoute admin />}>
                 <Route path="/contrato" element={<Contrato />} />
+                <Route path="/usuarios" element={<Usuarios />} />
               </Route>
             </Route>
           </Route>

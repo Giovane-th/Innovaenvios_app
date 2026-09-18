@@ -117,6 +117,10 @@ class GoogleLoginRequest(BaseModel):
     credential: str
 
 
+class UserStatusRequest(BaseModel):
+    status: str
+
+
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
 JWT_TTL_DAYS = 7
@@ -133,6 +137,7 @@ def public_user(doc: dict) -> dict:
         "email": doc.get("email", ""),
         "foto": doc.get("foto", ""),
         "role": doc.get("role", "cliente"),
+        "status": doc.get("status", "aprovado"),
     }
 
 
@@ -174,6 +179,8 @@ async def current_user(authorization: Optional[str] = Header(default=None)) -> d
     user = await db.users.find_one({"_id": payload.get("sub"), "ativo": {"$ne": False}})
     if not user:
         raise HTTPException(status_code=401, detail="Usuário não encontrado ou desativado.")
+    if user.get("status") == "bloqueado":
+        raise HTTPException(status_code=403, detail="Seu acesso foi bloqueado pela administração.")
     return user
 
 
@@ -384,6 +391,7 @@ async def register(req: RegisterRequest):
         "google_sub": None,
         "role": role,
         "ativo": True,
+        "status": "aprovado" if role == "admin" else "pendente",
         "created_at": now_iso(),
     }
     await db.users.insert_one(user)
@@ -401,6 +409,8 @@ async def login(req: LoginRequest):
     )
     if not valid:
         raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
+    if user.get("status") == "bloqueado":
+        raise HTTPException(status_code=403, detail="Seu acesso foi bloqueado pela administração.")
     return {"access_token": issue_access_token(user), "token_type": "bearer", "user": public_user(user)}
 
 
@@ -422,6 +432,8 @@ async def google_login(req: GoogleLoginRequest):
     if user:
         if user.get("ativo") is False:
             raise HTTPException(status_code=403, detail="Esta conta está desativada.")
+        if user.get("status") == "bloqueado":
+            raise HTTPException(status_code=403, detail="Seu acesso foi bloqueado pela administração.")
         await db.users.update_one(
             {"_id": user["_id"]},
             {"$set": {"google_sub": google_sub, "foto": info.get("picture", user.get("foto", "")), "last_login_at": now_iso()}},
@@ -437,6 +449,7 @@ async def google_login(req: GoogleLoginRequest):
             "foto": info.get("picture", ""),
             "role": "admin" if email in admin_emails() else "cliente",
             "ativo": True,
+            "status": "aprovado" if email in admin_emails() else "pendente",
             "created_at": now_iso(),
         }
         await db.users.insert_one(user)
@@ -445,6 +458,26 @@ async def google_login(req: GoogleLoginRequest):
 
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(current_user)):
+    return {"user": public_user(user)}
+
+
+@api_router.get("/admin/users")
+async def list_users(admin: dict = Depends(admin_user)):
+    users = await db.users.find({}).sort("created_at", -1).to_list(1000)
+    return {"users": [public_user(user) for user in users]}
+
+
+@api_router.patch("/admin/users/{user_id}/status")
+async def update_user_status(user_id: str, req: UserStatusRequest, admin: dict = Depends(admin_user)):
+    status = req.status.strip().lower()
+    if status not in {"pendente", "aprovado", "bloqueado"}:
+        raise HTTPException(status_code=400, detail="Status inválido.")
+    if user_id == str(admin["_id"]) and status != "aprovado":
+        raise HTTPException(status_code=400, detail="Você não pode bloquear sua própria conta administrativa.")
+    result = await db.users.update_one({"_id": user_id}, {"$set": {"status": status, "updated_at": now_iso()}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    user = await db.users.find_one({"_id": user_id})
     return {"user": public_user(user)}
 
 
