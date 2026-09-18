@@ -591,7 +591,6 @@ def correios_endereco(endereco: Endereco, destinatario: bool = False) -> dict:
         "bairro": endereco.bairro.strip(),
         "cidade": endereco.cidade.strip(),
         "uf": endereco.uf.strip().upper(),
-        "pais": "BR" if destinatario else "Brasil",
     }
     if destinatario:
         data["regiao"] = ""

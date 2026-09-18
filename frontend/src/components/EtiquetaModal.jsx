@@ -31,6 +31,11 @@ export const EtiquetaModal = ({ prepostagem, open, onOpenChange }) => {
 
   const handlePrint = () => window.print();
   const openOfficialPdf = async (download = false) => {
+    const pdfWindow = download ? null : window.open("", "_blank");
+    if (pdfWindow) {
+      pdfWindow.document.title = "Carregando etiqueta dos Correios";
+      pdfWindow.document.body.innerHTML = "<p style='font-family:Arial;padding:24px'>Carregando etiqueta oficial dos Correios...</p>";
+    }
     setDownloading(true);
     try {
       const response = await api.get(`/prepostagem/${p.id}/etiqueta/pdf`, { responseType: "blob" });
@@ -41,10 +46,12 @@ export const EtiquetaModal = ({ prepostagem, open, onOpenChange }) => {
         anchor.download = `etiqueta-${p.codigo_objeto}.pdf`;
         anchor.click();
       } else {
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (pdfWindow) pdfWindow.location.href = url;
+        else toast.error("O navegador bloqueou a janela do PDF. Libere pop-ups para este site ou use Baixar PDF.");
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (error) {
+      if (pdfWindow) pdfWindow.close();
       toast.error(error.response?.data?.detail || "Não foi possível abrir o PDF oficial.");
     } finally {
       setDownloading(false);
