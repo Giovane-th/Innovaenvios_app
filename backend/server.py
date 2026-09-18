@@ -1,9 +1,10 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import time
+import asyncio
 import base64
 import random
 import hashlib
@@ -187,6 +188,12 @@ async def current_user(authorization: Optional[str] = Header(default=None)) -> d
 async def admin_user(user: dict = Depends(current_user)) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Acesso exclusivo da administração.")
+    return user
+
+
+async def approved_user(user: dict = Depends(current_user)) -> dict:
+    if user.get("role") != "admin" and user.get("status", "aprovado") != "aprovado":
+        raise HTTPException(status_code=403, detail="Seu cadastro aguarda aprovação da administração.")
     return user
 
 
@@ -550,7 +557,7 @@ async def test_connection(user: dict = Depends(admin_user)):
 
 
 @api_router.post("/frete/calcular")
-async def calcular_frete(req: FreteRequest, user: dict = Depends(current_user)):
+async def calcular_frete(req: FreteRequest, user: dict = Depends(approved_user)):
     doc = await get_settings_doc()
     resultados = simular_frete(req)
     return {
@@ -561,7 +568,7 @@ async def calcular_frete(req: FreteRequest, user: dict = Depends(current_user)):
 
 
 @api_router.get("/rastreamento/{codigo}")
-async def rastrear(codigo: str, user: dict = Depends(current_user)):
+async def rastrear(codigo: str, user: dict = Depends(approved_user)):
     codigo = codigo.strip().upper()
     if len(codigo) != 13:
         raise HTTPException(status_code=400, detail="Código de rastreio deve ter 13 caracteres (ex: AA123456789BR).")
@@ -571,17 +578,177 @@ async def rastrear(codigo: str, user: dict = Depends(current_user)):
     return dados
 
 
+def only_digits(value: Any) -> str:
+    return "".join(c for c in str(value or "") if c.isdigit())
+
+
+def correios_endereco(endereco: Endereco, destinatario: bool = False) -> dict:
+    data = {
+        "cep": only_digits(endereco.cep),
+        "logradouro": endereco.logradouro.strip(),
+        "numero": endereco.numero.strip() or "S/N",
+        "complemento": endereco.complemento.strip(),
+        "bairro": endereco.bairro.strip(),
+        "cidade": endereco.cidade.strip(),
+        "uf": endereco.uf.strip().upper(),
+        "pais": "BR" if destinatario else "Brasil",
+    }
+    if destinatario:
+        data["regiao"] = ""
+    return data
+
+
+def correios_error(response: httpx.Response, operacao: str) -> HTTPException:
+    try:
+        detail = response.json()
+    except Exception:
+        detail = response.text[:1000]
+    logger.error("Correios %s (%s): %s", operacao, response.status_code, detail)
+    return HTTPException(
+        status_code=502,
+        detail=f"Correios recusou {operacao} ({response.status_code}): {detail}",
+    )
+
+
+def find_value(data: Any, keys: set[str]) -> Any:
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key.lower() in keys and value not in (None, ""):
+                return value
+        for value in data.values():
+            found = find_value(value, keys)
+            if found not in (None, ""):
+                return found
+    elif isinstance(data, list):
+        for value in data:
+            found = find_value(value, keys)
+            if found not in (None, ""):
+                return found
+    return None
+
+
+def extract_pdf(data: Any) -> Optional[bytes]:
+    candidate = find_value(data, {"pdf", "arquivo", "arquivobase64", "base64", "dados", "conteudo"})
+    if not isinstance(candidate, str):
+        return None
+    if candidate.startswith("data:application/pdf;base64,"):
+        candidate = candidate.split(",", 1)[1]
+    try:
+        decoded = base64.b64decode(candidate, validate=True)
+        return decoded if decoded.startswith(b"%PDF") else None
+    except Exception:
+        return None
+
+
+async def request_official_label(doc: dict, settings: dict) -> bytes:
+    token = await obter_token(settings)
+    host = host_for(settings.get("ambiente", "homologacao"))
+    request_body = {
+        "idsPrePostagem": [doc["correios_id"]],
+        "numeroCartaoPostagem": settings.get("cartao", ""),
+        "tipoRotulo": "P",
+        "formatoRotulo": "ET",
+        "imprimeRemetente": "S",
+        "layoutImpressao": "LINEAR_100_150",
+    }
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json, application/pdf"}
+    async with httpx.AsyncClient(timeout=60.0) as client_http:
+        response = await client_http.post(
+            f"{host}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
+            json=request_body,
+            headers=headers,
+        )
+        if response.status_code >= 400:
+            raise correios_error(response, "a geração do rótulo")
+        if response.content.startswith(b"%PDF"):
+            return response.content
+        result = response.json()
+        direct_pdf = extract_pdf(result)
+        if direct_pdf:
+            return direct_pdf
+        receipt = find_value(result, {"idrecibo", "recibo", "idsolicitacao", "id"})
+        if not receipt:
+            raise HTTPException(status_code=502, detail=f"Correios não devolveu o recibo do rótulo: {result}")
+        for _ in range(12):
+            await asyncio.sleep(1)
+            download = await client_http.get(
+                f"{host}/prepostagem/v1/prepostagens/rotulo/download/assincrono/{receipt}",
+                headers=headers,
+            )
+            if download.status_code in (202, 204, 404):
+                continue
+            if download.status_code >= 400:
+                raise correios_error(download, "o download do rótulo")
+            if download.content.startswith(b"%PDF"):
+                return download.content
+            try:
+                result = download.json()
+            except Exception:
+                continue
+            pdf = extract_pdf(result)
+            if pdf:
+                return pdf
+        raise HTTPException(status_code=504, detail="O rótulo ainda está sendo processado pelos Correios. Tente novamente em alguns segundos.")
+
+
 @api_router.post("/prepostagem")
-async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(current_user)):
+async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(approved_user)):
     doc = await get_settings_doc()
     servico = SERVICOS.get(req.servico, SERVICOS["03220"])
     prefixo = {"03220": "OD", "03298": "OE", "04227": "OF"}.get(req.servico, "OD")
+    connected = is_connected(doc)
     codigo_objeto = gerar_codigo_objeto(prefixo)
+    correios_id = None
     total_declarado = round(sum(i.valor * i.quantidade for i in req.itens), 2)
+    if connected:
+        token = await obter_token(doc)
+        payload = {
+            "remetente": {
+                "nome": req.remetente.nome.strip(),
+                "cpfCnpj": only_digits(req.remetente.cpf_cnpj),
+                "endereco": correios_endereco(req.remetente),
+            },
+            "destinatario": {
+                "nome": req.destinatario.nome.strip(),
+                "cpfCnpj": only_digits(req.destinatario.cpf_cnpj),
+                "endereco": correios_endereco(req.destinatario, destinatario=True),
+            },
+            "codigoServico": req.servico,
+            "pesoInformado": str(max(1, round(req.peso_kg * 1000))),
+            "codigoFormatoObjetoInformado": "2",
+            "alturaInformada": str(req.altura),
+            "larguraInformada": str(req.largura),
+            "comprimentoInformado": str(req.comprimento),
+            "itensDeclaracaoConteudo": [
+                {"conteudo": item.descricao, "quantidade": str(item.quantidade), "valor": f"{item.valor:.2f}"}
+                for item in req.itens
+            ],
+            "cienteObjetoNaoProibido": "1",
+            "solicitarColeta": "N",
+            "logisticaReversa": "N",
+            "emiteDCe": "S",
+            "modalidadePagamento": "2",
+            "canalExternoOrigem": "INNOVAENVIOS",
+        }
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        async with httpx.AsyncClient(timeout=60.0) as client_http:
+            response = await client_http.post(
+                f"{host_for(doc.get('ambiente', 'homologacao'))}/prepostagem/v1/prepostagens",
+                json=payload,
+                headers=headers,
+            )
+        if response.status_code >= 400:
+            raise correios_error(response, "a pré-postagem")
+        official = response.json()
+        correios_id = str(official.get("id") or find_value(official, {"idprepostagem"}) or "")
+        codigo_objeto = str(official.get("codigoObjeto") or find_value(official, {"codigoobjeto"}) or "")
+        if not correios_id or not codigo_objeto:
+            raise HTTPException(status_code=502, detail=f"Resposta incompleta dos Correios ao criar a pré-postagem: {official}")
     registro = {
         "id": str(uuid.uuid4()),
         "codigo_objeto": codigo_objeto,
-        "id_prepostagem": "PP" + uuid.uuid4().hex[:14].upper(),
+        "id_prepostagem": correios_id or ("PP" + uuid.uuid4().hex[:14].upper()),
+        "correios_id": correios_id,
         "servico": req.servico,
         "servico_nome": servico["nome"],
         "servico_tag": servico["tag"],
@@ -594,7 +761,7 @@ async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(curren
         "valor_frete": req.valor_frete,
         "status": "CRIADA",
         "etiqueta_pronta": False,
-        "simulado": not is_connected(doc),
+        "simulado": not connected,
         "user_id": str(user["_id"]),
         "created_at": now_iso(),
     }
@@ -603,39 +770,70 @@ async def criar_prepostagem(req: PrePostagemRequest, user: dict = Depends(curren
 
 
 @api_router.get("/prepostagens")
-async def listar_prepostagens(status: Optional[str] = None, user: dict = Depends(current_user)):
+async def listar_prepostagens(status: Optional[str] = None, user: dict = Depends(approved_user)):
     query = {} if user.get("role") == "admin" else {"user_id": str(user["_id"])}
     if status and status != "TODAS":
         query["status"] = status
-    docs = await db.prepostagens.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    docs = await db.prepostagens.find(query, {"_id": 0, "etiqueta_pdf_base64": 0}).sort("created_at", -1).to_list(500)
     return {"items": docs, "total": len(docs)}
 
 
 @api_router.get("/prepostagem/{id}")
-async def obter_prepostagem(id: str, user: dict = Depends(current_user)):
+async def obter_prepostagem(id: str, user: dict = Depends(approved_user)):
     query = {"id": id}
     if user.get("role") != "admin":
         query["user_id"] = str(user["_id"])
-    doc = await db.prepostagens.find_one(query, {"_id": 0})
+    doc = await db.prepostagens.find_one(query, {"_id": 0, "etiqueta_pdf_base64": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
     return doc
 
 
 @api_router.post("/prepostagem/{id}/etiqueta")
-async def gerar_etiqueta(id: str, user: dict = Depends(current_user)):
+async def gerar_etiqueta(id: str, user: dict = Depends(approved_user)):
     query = {"id": id}
     if user.get("role") != "admin":
         query["user_id"] = str(user["_id"])
     doc = await db.prepostagens.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
-    await db.prepostagens.update_one(query, {"$set": {"etiqueta_pronta": True}})
-    return {"id": id, "etiqueta_pronta": True, "codigo_objeto": doc["codigo_objeto"]}
+    if doc.get("simulado", True):
+        await db.prepostagens.update_one(query, {"$set": {"etiqueta_pronta": True}})
+        return {"id": id, "etiqueta_pronta": True, "simulado": True, "codigo_objeto": doc["codigo_objeto"]}
+    settings = await get_settings_doc()
+    pdf = await request_official_label(doc, settings)
+    await db.prepostagens.update_one(query, {"$set": {
+        "etiqueta_pronta": True,
+        "etiqueta_pdf_base64": base64.b64encode(pdf).decode("ascii"),
+    }})
+    return {"id": id, "etiqueta_pronta": True, "simulado": False, "codigo_objeto": doc["codigo_objeto"]}
+
+
+@api_router.get("/prepostagem/{id}/etiqueta/pdf")
+async def baixar_etiqueta(id: str, user: dict = Depends(approved_user)):
+    query = {"id": id}
+    if user.get("role") != "admin":
+        query["user_id"] = str(user["_id"])
+    doc = await db.prepostagens.find_one(query)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Pré-postagem não encontrada.")
+    if doc.get("simulado", True):
+        raise HTTPException(status_code=409, detail="Etiqueta simulada não possui PDF oficial dos Correios.")
+    encoded = doc.get("etiqueta_pdf_base64")
+    if not encoded:
+        settings = await get_settings_doc()
+        pdf = await request_official_label(doc, settings)
+        encoded = base64.b64encode(pdf).decode("ascii")
+        await db.prepostagens.update_one(query, {"$set": {"etiqueta_pronta": True, "etiqueta_pdf_base64": encoded}})
+    return Response(
+        content=base64.b64decode(encoded),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="etiqueta-{doc["codigo_objeto"]}.pdf"'},
+    )
 
 
 @api_router.post("/prepostagem/{id}/cancelar")
-async def cancelar_prepostagem(id: str, user: dict = Depends(current_user)):
+async def cancelar_prepostagem(id: str, user: dict = Depends(approved_user)):
     query = {"id": id}
     if user.get("role") != "admin":
         query["user_id"] = str(user["_id"])
@@ -649,9 +847,9 @@ async def cancelar_prepostagem(id: str, user: dict = Depends(current_user)):
 
 
 @api_router.get("/dashboard/stats")
-async def dashboard_stats(user: dict = Depends(current_user)):
+async def dashboard_stats(user: dict = Depends(approved_user)):
     query = {} if user.get("role") == "admin" else {"user_id": str(user["_id"])}
-    docs = await db.prepostagens.find(query, {"_id": 0}).to_list(1000)
+    docs = await db.prepostagens.find(query, {"_id": 0, "etiqueta_pdf_base64": 0}).to_list(1000)
     total = len(docs)
     criadas = sum(1 for d in docs if d.get("status") == "CRIADA")
     canceladas = sum(1 for d in docs if d.get("status") == "CANCELADA")

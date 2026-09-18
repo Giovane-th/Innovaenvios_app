@@ -19,9 +19,8 @@ const SERVICOS = [
 ];
 
 const REM_DEFAULT = {
-  nome: "InnovaEnvios Logística", cpf_cnpj: "42.123.456/0001-90",
-  logradouro: "Av. Paulista", numero: "1000", complemento: "", bairro: "Bela Vista",
-  cidade: "São Paulo", uf: "SP", cep: "01310-100",
+  nome: "", cpf_cnpj: "", logradouro: "", numero: "", complemento: "", bairro: "",
+  cidade: "", uf: "", cep: "",
 };
 const DEST_DEFAULT = { nome: "", cpf_cnpj: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", cep: "" };
 
@@ -57,8 +56,13 @@ export default function PrePostagem() {
   const totalDeclarado = itens.reduce((s, it) => s + (Number(it.valor) || 0) * (Number(it.quantidade) || 0), 0);
 
   const submit = async () => {
-    if (!destinatario.nome || !destinatario.cep || !destinatario.cidade) {
-      toast.error("Preencha nome, CEP e cidade do destinatário.");
+    const requiredAddress = (address) => address.nome && address.cep && address.logradouro && address.numero && address.bairro && address.cidade && address.uf;
+    if (!requiredAddress(remetente) || !requiredAddress(destinatario)) {
+      toast.error("Preencha todos os campos de endereço do remetente e do destinatário.");
+      return;
+    }
+    if (settings?.conectado && !remetente.cpf_cnpj) {
+      toast.error("Informe o CPF/CNPJ válido do remetente para emitir nos Correios.");
       return;
     }
     setLoading(true);
@@ -70,12 +74,12 @@ export default function PrePostagem() {
         itens: itens.map((i) => ({ descricao: i.descricao, quantidade: Number(i.quantidade), valor: Number(i.valor) })),
         valor_frete: Number(prefill.valor_frete || 0),
       });
-      await api.post(`/prepostagem/${data.id}/etiqueta`);
-      setEtiqueta(data);
+      const { data: label } = await api.post(`/prepostagem/${data.id}/etiqueta`);
+      setEtiqueta({ ...data, ...label });
       setModalOpen(true);
       toast.success(`Pré-postagem criada! Objeto ${data.codigo_objeto}`);
     } catch (e) {
-      toast.error("Erro ao criar pré-postagem.");
+      toast.error(e.response?.data?.detail || "Erro ao criar pré-postagem.");
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,10 @@ export default function PrePostagem() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="space-y-4 p-6">
           <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Remetente</h2>
-          <Field label="Nome / Razão social" value={remetente.nome} onChange={(e) => setR("nome", e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Nome / Razão social *" value={remetente.nome} onChange={(e) => setR("nome", e.target.value)} />
+            <Field label="CPF/CNPJ *" value={remetente.cpf_cnpj} onChange={(e) => setR("cpf_cnpj", e.target.value)} />
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2"><Field label="Logradouro" value={remetente.logradouro} onChange={(e) => setR("logradouro", e.target.value)} /></div>
             <Field label="Número" value={remetente.numero} onChange={(e) => setR("numero", e.target.value)} />
